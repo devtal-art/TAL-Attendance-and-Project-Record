@@ -1,0 +1,12 @@
+# Claude Code local session/config data - never commit
+.claude
+
+# Dependencies (also covered by client/.gitignore and server/.gitignore)
+node_modules
+
+# Editor/OS
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+Thumbs.db
