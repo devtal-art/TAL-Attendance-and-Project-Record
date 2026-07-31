@@ -28,6 +28,17 @@ if (!fs.existsSync('uploads')) {
 app.use('/api', apiRoutes);
 app.use('/api/projects', projectsRoutes);
 
+// Health check - no auth, no DB access, no side effects. Used by Render (or
+// any uptime/monitoring check) to confirm the process is up and responsive.
+app.get('/api/health', (req, res) => {
+  res.status(200).json({
+    success: true,
+    status: 'healthy',
+    service: 'attendance-and-project-record',
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // Database Connection
 const mongoUri = process.env.MONGODB_URI;
 if (!mongoUri) {
