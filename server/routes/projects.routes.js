@@ -24,8 +24,8 @@ const handleUpload = (req, res, next) => {
   });
 };
 
+router.post('/preview', handleUpload, projectController.previewProjects);
 router.post('/upload', handleUpload, projectController.uploadProjects);
 router.get('/', projectController.getProjects);
-router.patch('/:id/links', projectController.updateProjectLinks);
 
 module.exports = router;

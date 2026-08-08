@@ -1,6 +1,10 @@
 # Claude Code local session/config data - never commit
 .claude
 
+# Reference/test data used for local Excel-import testing during development -
+# real business data (project/brand/category names), never meant to be committed.
+2025(Full 2025 Data).csv
+
 # Dependencies (also covered by client/.gitignore and server/.gitignore)
 node_modules
 

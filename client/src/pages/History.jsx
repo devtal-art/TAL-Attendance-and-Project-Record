@@ -44,7 +44,7 @@ export default function History() {
     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
       <h2 className="text-xl font-bold text-gray-900 mb-6">Upload History</h2>
       
-      <Table>
+      <Table className="min-w-[720px]">
         <TableHeader>
           <TableRow>
             <TableHead>Month / Year</TableHead>

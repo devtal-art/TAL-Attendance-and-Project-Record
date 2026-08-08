@@ -15,124 +15,66 @@ import {
   TableRow,
 } from '../ui/table';
 import { Button } from '../ui/button';
-import { ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, FolderOpen, Pencil, ExternalLink } from 'lucide-react';
-import { monthIndex, getStatusColor } from './constants';
-import { updateProjectLinks } from '../../services/projectsApi';
+import { ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, FolderOpen, AlertTriangle, Copy } from 'lucide-react';
+import { getDepartmentChipStyle, monthIndex } from './constants';
 
 const PAGE_SIZE = 50;
 
 const monthSortingFn = (rowA, rowB) => monthIndex(rowA.original.month) - monthIndex(rowB.original.month);
 
-// Inline editable "Links" cell - view mode shows saved links as clickable
-// pills, edit mode swaps in a textarea (one link per line) with Save/Cancel.
-function LinksCell({ project, onSaved }) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [draft, setDraft] = useState('');
-  const [saving, setSaving] = useState(false);
-  const links = project.links || [];
+// getRowFlags: optional (record) => { invalid, duplicate } - only used by the
+// upload preview to highlight problem rows. Omitted for the production
+// Dashboard/List tables, which render as a plain sortable/paginated table.
+export default function ProjectsTable({ records, getRowFlags }) {
+  const [sorting, setSorting] = useState([{ id: 'year', desc: true }]);
 
-  const startEdit = () => {
-    setDraft(links.join('\n'));
-    setIsEditing(true);
-  };
-
-  const save = async () => {
-    const cleaned = draft.split('\n').map((l) => l.trim()).filter(Boolean);
-    setSaving(true);
-    try {
-      const updated = await updateProjectLinks(project._id, cleaned);
-      onSaved(project._id, updated.links ?? cleaned);
-      setIsEditing(false);
-    } catch (error) {
-      console.error('Failed to save links', error);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (isEditing) {
-    return (
-      <div className="flex flex-col gap-1.5 min-w-[220px] py-1" onClick={(e) => e.stopPropagation()}>
-        <textarea
-          autoFocus
-          rows={3}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder="Paste one link per line..."
-          className="w-full text-xs rounded-md border border-gray-300 p-1.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-        />
-        <div className="flex gap-1.5">
-          <Button size="sm" onClick={save} disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
-          <Button size="sm" variant="outline" onClick={() => setIsEditing(false)} disabled={saving}>Cancel</Button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex items-start gap-2 min-w-[160px]" onClick={(e) => e.stopPropagation()}>
-      {links.length > 0 ? (
-        <div className="flex flex-col gap-0.5">
-          {links.map((link, i) => (
-            <a
-              key={i}
-              href={link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-primary hover:underline truncate max-w-[220px]"
-              title={link}
-            >
-              <ExternalLink className="w-3 h-3 shrink-0" />
-              {link}
-            </a>
-          ))}
-        </div>
-      ) : (
-        <span className="text-xs text-gray-400">No links</span>
-      )}
-      <button onClick={startEdit} className="text-gray-400 hover:text-primary shrink-0" title="Edit links">
-        <Pencil className="w-3.5 h-3.5" />
-      </button>
-    </div>
-  );
-}
-
-export default function ProjectsTable({ projects, onLinksSaved }) {
-  const [sorting, setSorting] = useState([{ id: 'month', desc: false }]);
-
-  const columns = useMemo(
-    () => [
-      { accessorKey: 'month', header: 'Month', sortingFn: monthSortingFn },
+  const columns = useMemo(() => {
+    const base = [
       { accessorKey: 'year', header: 'Year', sortingFn: 'basic' },
       { accessorKey: 'brand', header: 'Brand', sortingFn: 'alphanumeric' },
-      { accessorKey: 'projectName', header: 'Project Name', sortingFn: 'alphanumeric' },
+      { accessorKey: 'category', header: 'Category', sortingFn: 'alphanumeric' },
       {
-        accessorKey: 'status',
-        header: 'Status',
+        accessorKey: 'department',
+        header: 'Department',
         sortingFn: 'alphanumeric',
         cell: (info) => {
-          const status = info.getValue();
-          const color = getStatusColor(status);
+          const value = info.getValue();
+          if (!value) return <span className="text-gray-400">—</span>;
           return (
-            <span className="inline-flex items-center gap-1.5 text-sm font-medium">
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
-              {status || '—'}
+            <span className="inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium" style={getDepartmentChipStyle(value)}>
+              {value}
             </span>
           );
         },
       },
+      { accessorKey: 'month', header: 'Month', sortingFn: monthSortingFn },
+      { accessorKey: 'taskName', header: 'Project Name', sortingFn: 'alphanumeric' },
+    ];
+
+    if (!getRowFlags) return base;
+
+    return [
       {
-        id: 'links',
-        header: 'Links',
+        id: 'flags',
+        header: '',
         enableSorting: false,
-        cell: ({ row }) => <LinksCell project={row.original} onSaved={onLinksSaved} />,
+        cell: ({ row }) => {
+          const { invalid, duplicate } = getRowFlags(row.original) || {};
+          if (!invalid && !duplicate) return null;
+          return (
+            <div className="flex items-center gap-1">
+              {invalid && <AlertTriangle className="w-3.5 h-3.5 text-amber-500" aria-label="Invalid row" />}
+              {duplicate && <Copy className="w-3.5 h-3.5 text-orange-500" aria-label="Duplicate row" />}
+            </div>
+          );
+        },
       },
-    ],
-    [onLinksSaved],
-  );
+      ...base,
+    ];
+  }, [getRowFlags]);
 
   const table = useReactTable({
-    data: projects,
+    data: records,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -144,27 +86,40 @@ export default function ProjectsTable({ projects, onLinksSaved }) {
 
   const rows = table.getRowModel().rows;
 
+  const rowClassName = (record) => {
+    if (!getRowFlags) return '';
+    const { invalid, duplicate } = getRowFlags(record) || {};
+    if (invalid) return 'bg-amber-50/60';
+    if (duplicate) return 'bg-orange-50/60';
+    return '';
+  };
+
   return (
     <div>
       <div className="max-h-[600px] overflow-auto rounded-lg border border-gray-200">
-        <Table>
+        <Table className="min-w-[720px]">
           <TableHeader className="sticky top-0 z-10 bg-gray-50 shadow-sm">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
                   const sortDir = header.column.getIsSorted();
+                  const canSort = header.column.getCanSort();
                   return (
                     <TableHead key={header.id} className="bg-gray-50">
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1 select-none hover:text-gray-900"
-                        onClick={header.column.getToggleSortingHandler()}
-                      >
-                        {flexRender(header.column.columnDef.header, header.getContext())}
-                        {sortDir === 'asc' && <ArrowUp className="w-3.5 h-3.5" />}
-                        {sortDir === 'desc' && <ArrowDown className="w-3.5 h-3.5" />}
-                        {!sortDir && <ArrowUpDown className="w-3.5 h-3.5 text-gray-300" />}
-                      </button>
+                      {canSort ? (
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 select-none hover:text-gray-900"
+                          onClick={header.column.getToggleSortingHandler()}
+                        >
+                          {flexRender(header.column.columnDef.header, header.getContext())}
+                          {sortDir === 'asc' && <ArrowUp className="w-3.5 h-3.5" />}
+                          {sortDir === 'desc' && <ArrowDown className="w-3.5 h-3.5" />}
+                          {!sortDir && <ArrowUpDown className="w-3.5 h-3.5 text-gray-300" />}
+                        </button>
+                      ) : (
+                        flexRender(header.column.columnDef.header, header.getContext())
+                      )}
                     </TableHead>
                   );
                 })}
@@ -174,7 +129,7 @@ export default function ProjectsTable({ projects, onLinksSaved }) {
           <TableBody>
             {rows.length ? (
               rows.map((row) => (
-                <TableRow key={row.id}>
+                <TableRow key={row.id} className={rowClassName(row.original)}>
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -196,9 +151,9 @@ export default function ProjectsTable({ projects, onLinksSaved }) {
         </Table>
       </div>
 
-      <div className="flex items-center justify-between pt-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-4">
         <span className="text-sm text-gray-500">
-          {projects.length} project{projects.length === 1 ? '' : 's'} total
+          {records.length} project{records.length === 1 ? '' : 's'} total
         </span>
         <div className="flex items-center space-x-2">
           <Button variant="outline" size="sm" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>

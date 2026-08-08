@@ -1,14 +1,17 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FolderKanban, Upload as UploadIcon } from 'lucide-react';
 import { getProjects } from '../../services/projectsApi';
 import { Button } from '../../components/ui/button';
 import ProjectsSummaryCards from '../../components/projects/ProjectsSummaryCards';
 import ProjectsCharts from '../../components/projects/ProjectsCharts';
+import ProjectsFilters from '../../components/projects/ProjectsFilters';
+import { DEFAULT_FILTERS, filterRecords, getCascadingFilterOptions, sanitizeFilters } from '../../components/projects/dataUtils';
 
 export default function ProjectsDashboard() {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState(DEFAULT_FILTERS);
 
   useEffect(() => {
     fetchProjects();
@@ -25,6 +28,10 @@ export default function ProjectsDashboard() {
       setLoading(false);
     }
   };
+
+  const filterOptions = useMemo(() => getCascadingFilterOptions(projects, filters), [projects, filters]);
+  const filteredProjects = useMemo(() => filterRecords(projects, filters), [projects, filters]);
+  const handleFiltersChange = (next) => setFilters(sanitizeFilters(projects, next));
 
   if (loading) {
     return <div className="flex items-center justify-center h-full">Loading...</div>;
@@ -51,12 +58,14 @@ export default function ProjectsDashboard() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold tracking-tight text-gray-900">Projects Overview</h2>
-        <p className="text-sm text-gray-500">{projects.length} project(s) loaded</p>
+        <p className="text-sm text-gray-500">{filteredProjects.length} of {projects.length} project(s)</p>
       </div>
 
-      <ProjectsSummaryCards projects={projects} />
+      <ProjectsFilters filters={filters} onChange={handleFiltersChange} {...filterOptions} />
 
-      <ProjectsCharts projects={projects} />
+      <ProjectsSummaryCards records={filteredProjects} />
+
+      <ProjectsCharts records={filteredProjects} />
     </div>
   );
 }

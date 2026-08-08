@@ -1,53 +1,36 @@
 import React, { useMemo } from 'react';
+import { ListChecks, CalendarRange, Tag, Building2, Layers, CalendarDays } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { TOTAL_CARD_ICON, normalizeStatus, getStatusColor, getStatusIcon } from './constants';
+import { computeSummaryCounts } from './dataUtils';
 
-// Cards are driven entirely by whatever status values actually appear in the
-// uploaded sheet - not a fixed keyword list - so a custom status vocabulary
-// (e.g. "5 - Review - Client") gets its own card instead of being invisible.
-export default function ProjectsSummaryCards({ projects }) {
-  const statusCounts = useMemo(() => {
-    const counts = new Map();
-    projects.forEach((p) => {
-      const status = normalizeStatus(p.status) || 'Unspecified';
-      counts.set(status, (counts.get(status) || 0) + 1);
-    });
-    return Array.from(counts.entries())
-      .map(([status, count]) => ({ status, count }))
-      .sort((a, b) => b.count - a.count);
-  }, [projects]);
+const CARD_DEFS = [
+  { key: 'tasks', label: 'Total Projects', icon: ListChecks, color: '#2a78d6' },
+  { key: 'years', label: 'Total Years', icon: CalendarRange, color: '#4a3aa7' },
+  { key: 'brands', label: 'Total Brands', icon: Building2, color: '#1baf7a' },
+  { key: 'categories', label: 'Total Categories', icon: Tag, color: '#eb6834' },
+  { key: 'departments', label: 'Total Departments', icon: Layers, color: '#e87ba4' },
+  { key: 'months', label: 'Total Months', icon: CalendarDays, color: '#eda100' },
+];
 
-  const TotalIcon = TOTAL_CARD_ICON;
+// Six generic, dynamically-computed metrics reused for both the upload
+// preview and the dashboard - nothing here assumes a fixed vocabulary of
+// brands/categories/departments/etc.
+export default function ProjectsSummaryCards({ records }) {
+  const counts = useMemo(() => computeSummaryCounts(records), [records]);
 
   return (
-    <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium text-gray-500">Total Projects</CardTitle>
-          <TotalIcon className="h-4 w-4 text-gray-700" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold text-gray-900">{projects.length}</div>
-        </CardContent>
-      </Card>
-
-      {statusCounts.map(({ status, count }) => {
-        const color = getStatusColor(status);
-        const Icon = getStatusIcon(status);
-        return (
-          <Card key={status}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 gap-2">
-              <CardTitle className="text-sm font-medium text-gray-500 truncate" title={status}>
-                {status}
-              </CardTitle>
-              <Icon className="h-4 w-4 shrink-0" style={{ color }} />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900">{count}</div>
-            </CardContent>
-          </Card>
-        );
-      })}
+    <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+      {CARD_DEFS.map(({ key, label, icon: Icon, color }) => (
+        <Card key={key}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-gray-500">{label}</CardTitle>
+            <Icon className="h-4 w-4" style={{ color }} />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-gray-900">{counts[key]}</div>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 }

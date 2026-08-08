@@ -1,10 +1,6 @@
 const mongoose = require('mongoose');
 
 const projectSchema = new mongoose.Schema({
-  month: {
-    type: String,
-    required: true,
-  },
   year: {
     type: Number,
     required: true,
@@ -13,17 +9,21 @@ const projectSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  projectName: {
+  category: {
     type: String,
     required: true,
   },
-  status: {
+  department: {
     type: String,
     required: true,
   },
-  links: {
-    type: [String],
-    default: [],
+  month: {
+    type: String,
+    required: true,
+  },
+  taskName: {
+    type: String,
+    required: true,
   },
 }, { timestamps: true });
 

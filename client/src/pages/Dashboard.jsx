@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { getReports, getMonthlySummary } from '../services/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Users, Clock, CalendarDays, AlertTriangle, Monitor, LogIn, Clock3 } from 'lucide-react';
+import { Users, Clock, CalendarDays, AlertTriangle, Monitor, Clock3 } from 'lucide-react';
 import {
   BarChart,
   Bar,
@@ -13,8 +13,7 @@ import {
   ResponsiveContainer,
   PieChart,
   Pie,
-  Cell,
-  Legend
+  Cell
 } from 'recharts';
 
 // Groups the flat report list into one entry per calendar period, since a
@@ -133,19 +132,19 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-gray-900">
             {period ? `${period.month} ${period.year}` : 'Dashboard'}
           </h2>
           <p className="text-sm text-gray-500">All Employees</p>
         </div>
-        <div className="flex items-center space-x-2">
-          <span className="text-sm font-medium text-gray-500">Select Month:</span>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-gray-500 shrink-0">Select Month:</span>
           <select
             value={selectedPeriodKey}
             onChange={(e) => handlePeriodSelect(e.target.value)}
-            className="border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm p-2 border"
+            className="border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm p-2 border w-full sm:w-auto"
           >
             {periods.map(p => (
               <option key={p.key} value={p.key}>{p.month} {p.year}</option>
@@ -157,7 +156,7 @@ export default function Dashboard() {
       {!loading && summaryData && (
         <>
           {/* Top KPI Cards */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-gray-500">Total Employees</CardTitle>
@@ -196,7 +195,7 @@ export default function Dashboard() {
             </Card>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-gray-500">Avg Late Time</CardTitle>
@@ -238,15 +237,17 @@ export default function Dashboard() {
           </div>
 
           {/* Charts Row */}
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <Card>
               <CardHeader>
                 <CardTitle>Department-wise Present Days</CardTitle>
               </CardHeader>
-              <CardContent className="h-80">
-                <div className="flex items-center gap-4 h-full">
-                  {/* Donut Chart */}
-                  <div className="flex-shrink-0" style={{ width: 200, height: '100%' }}>
+              <CardContent className="h-auto sm:h-80">
+                <div className="flex flex-col sm:flex-row items-center gap-4 sm:h-full">
+                  {/* Donut Chart - fixed width on sm+ (matches existing desktop
+                      layout exactly); full-width/capped-height on mobile so it
+                      doesn't get squeezed beside the legend in a narrow row. */}
+                  <div className="shrink-0 w-full h-56 sm:w-[200px] sm:h-full">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
@@ -270,7 +271,7 @@ export default function Dashboard() {
                   </div>
 
                   {/* Legend */}
-                  <div className="flex-1 flex flex-col justify-center gap-2 overflow-y-auto max-h-72 pr-1">
+                  <div className="w-full flex-1 flex flex-col justify-center gap-2 overflow-y-auto max-h-72 pr-1">
                     {chartData.map((entry, index) => {
                       const pct = totalPresentDays > 0 ? ((entry.value / totalPresentDays) * 100).toFixed(1) : 0;
                       return (

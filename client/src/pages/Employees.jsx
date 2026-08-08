@@ -157,7 +157,7 @@ export default function Employees() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 space-y-4 sm:space-y-0">
         <h2 className="text-xl font-bold text-gray-900">Employees List</h2>
 
-        <div className="flex items-center space-x-4 w-full sm:w-auto">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
             <Input
@@ -170,7 +170,7 @@ export default function Employees() {
           <select
             value={selectedPeriodKey}
             onChange={(e) => setSelectedPeriodKey(e.target.value)}
-            className="border border-gray-300 rounded-md p-2 text-sm focus:ring-primary focus:border-primary"
+            className="border border-gray-300 rounded-md p-2 text-sm focus:ring-primary focus:border-primary w-full sm:w-auto"
           >
             {periods.map(p => (
               <option key={p.key} value={p.key}>{p.month} {p.year}</option>
@@ -179,7 +179,7 @@ export default function Employees() {
         </div>
       </div>
 
-      <Table>
+      <Table className="min-w-[960px]">
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
@@ -225,7 +225,7 @@ export default function Employees() {
       </Table>
 
       {/* Pagination */}
-      <div className="flex items-center justify-end space-x-2 py-4">
+      <div className="flex flex-wrap items-center justify-end gap-2 py-4">
         <Button
           variant="outline"
           size="sm"

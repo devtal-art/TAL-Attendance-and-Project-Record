@@ -1,17 +1,30 @@
-import React, { useState, useRef } from 'react';
-import { Upload as UploadIcon, FileSpreadsheet, X, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { uploadProjectsExcel } from '../../services/projectsApi';
+import React, { useMemo, useState, useRef } from 'react';
+import { Upload as UploadIcon, FileSpreadsheet, X, AlertCircle, CheckCircle2, ListTree, Table2, ArrowLeft } from 'lucide-react';
+import { previewProjectsExcel, uploadProjectsExcel } from '../../services/projectsApi';
 import { Button } from '../../components/ui/button';
+import ProjectsSummaryCards from '../../components/projects/ProjectsSummaryCards';
+import HierarchyTree from '../../components/projects/HierarchyTree';
+import ProjectsTable from '../../components/projects/ProjectsTable';
+import ValidationDuplicatesPanel from '../../components/projects/ValidationDuplicatesPanel';
 import { useNavigate } from 'react-router-dom';
 
 export default function ProjectsUpload() {
   const [file, setFile] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
+  const [isParsing, setIsParsing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [step, setStep] = useState('select'); // 'select' | 'preview'
+  const [previewData, setPreviewData] = useState(null); // { records, invalidCount, duplicateCount }
+  const [viewMode, setViewMode] = useState('table'); // 'table' | 'hierarchy'
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
+
+  const validRecords = useMemo(
+    () => (previewData ? previewData.records.filter((r) => r.valid) : []),
+    [previewData],
+  );
 
   const onDragOver = (e) => {
     e.preventDefault();
@@ -51,30 +64,133 @@ export default function ProjectsUpload() {
     setSuccessMessage('');
   };
 
-  const handleUpload = async () => {
-    if (!file) return;
-
-    setIsUploading(true);
+  const resetToSelect = () => {
+    setStep('select');
+    setPreviewData(null);
+    setFile(null);
     setError('');
     setSuccessMessage('');
+    setViewMode('hierarchy');
+  };
+
+  const handleProcess = async () => {
+    if (!file) return;
+
+    setIsParsing(true);
+    setError('');
+
+    try {
+      const result = await previewProjectsExcel(file);
+      setPreviewData(result);
+      setStep('preview');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to parse the project sheet.');
+    } finally {
+      setIsParsing(false);
+    }
+  };
+
+  const handleConfirmSave = async () => {
+    if (!file) return;
+
+    setIsSaving(true);
+    setError('');
 
     try {
       const result = await uploadProjectsExcel(file);
       setSuccessMessage(result.message || 'Upload successful.');
       setTimeout(() => navigate('/projects'), 900);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to upload the project sheet.');
+      setError(err.response?.data?.message || 'Failed to save the project sheet.');
     } finally {
-      setIsUploading(false);
+      setIsSaving(false);
     }
   };
+
+  if (step === 'preview' && previewData) {
+    return (
+      <div className="max-w-6xl mx-auto space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <button type="button" onClick={resetToSelect} className="text-gray-400 hover:text-gray-700 shrink-0" title="Choose a different file">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div className="min-w-0">
+              <h2 className="text-xl font-bold text-gray-900">Review before saving</h2>
+              <p className="text-sm text-gray-500 truncate max-w-md">{file?.name}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button variant="outline" onClick={resetToSelect} disabled={isSaving} className="flex-1 sm:flex-none">Choose a different file</Button>
+            <Button onClick={handleConfirmSave} disabled={isSaving || !!successMessage} className="flex-1 sm:flex-none">
+              {isSaving ? 'Saving...' : 'Confirm & Save'}
+            </Button>
+          </div>
+        </div>
+
+        {error && (
+          <div className="p-4 bg-red-50 text-red-700 rounded-lg flex items-start space-x-3 text-sm">
+            <AlertCircle className="w-5 h-5 shrink-0" />
+            <span className="whitespace-pre-line">{error}</span>
+          </div>
+        )}
+
+        {successMessage && (
+          <div className="p-4 bg-green-50 text-green-700 rounded-lg flex items-start space-x-3 text-sm">
+            <CheckCircle2 className="w-5 h-5 shrink-0" />
+            <span>{successMessage}</span>
+          </div>
+        )}
+
+        <ProjectsSummaryCards records={validRecords} />
+
+        <ValidationDuplicatesPanel
+          records={previewData.records}
+          invalidCount={previewData.invalidCount}
+          duplicateCount={previewData.duplicateCount}
+        />
+
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+          <div className="flex items-center gap-2 mb-4 border-b border-gray-100 pb-3">
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                viewMode === 'table' ? 'bg-primary/10 text-primary' : 'text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              <Table2 className="w-4 h-4" /> Table View
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('hierarchy')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                viewMode === 'hierarchy' ? 'bg-primary/10 text-primary' : 'text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              <ListTree className="w-4 h-4" /> Hierarchy View
+            </button>
+          </div>
+
+          {viewMode === 'hierarchy' ? (
+            <HierarchyTree records={validRecords} />
+          ) : (
+            <ProjectsTable
+              records={previewData.records}
+              getRowFlags={(r) => ({ invalid: !r.valid, duplicate: r.isDuplicate })}
+            />
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto mt-10">
       <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
         <h2 className="text-2xl font-bold text-gray-800 mb-2 text-center">Upload Project Sheet</h2>
         <p className="text-sm text-gray-500 mb-6 text-center">
-          Required columns: Months, Years, Brands, Project Name, Project Status
+          Required columns: Year, Brand, Category, Department, Month, Task Name
         </p>
 
         {!file ? (
@@ -135,18 +251,11 @@ export default function ProjectsUpload() {
               </div>
             )}
 
-            {successMessage && (
-              <div className="mb-6 p-4 bg-green-50 text-green-700 rounded-lg flex items-start space-x-3 text-sm">
-                <CheckCircle2 className="w-5 h-5 shrink-0" />
-                <span>{successMessage}</span>
-              </div>
-            )}
-
-            <Button className="w-full h-12 text-lg" onClick={handleUpload} disabled={isUploading || !!successMessage}>
-              {isUploading ? 'Parsing & Uploading...' : 'Process File'}
+            <Button className="w-full h-12 text-lg" onClick={handleProcess} disabled={isParsing}>
+              {isParsing ? 'Parsing...' : 'Process File'}
             </Button>
             <p className="text-xs text-gray-400 mt-3 text-center">
-              A new upload replaces the currently stored project dataset.
+              You'll be able to review the parsed data before it's saved.
             </p>
           </div>
         )}
