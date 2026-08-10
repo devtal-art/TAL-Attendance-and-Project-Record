@@ -141,11 +141,6 @@ export default function ProjectsCharts({ records }) {
     return groupTopN(counts, MAX_SLICES).sort((a, b) => b.value - a.value);
   }, [records]);
 
-  const byBrand = useMemo(() => {
-    const counts = buildCountsByKey(records, (r) => r.brand || 'Unspecified');
-    return groupTopN(counts, MAX_SLICES);
-  }, [records]);
-
   const byCategory = useMemo(() => {
     const counts = buildCountsByKey(records, (r) => r.category || 'Unspecified');
     return groupTopN(counts, MAX_SLICES);
@@ -155,9 +150,8 @@ export default function ProjectsCharts({ records }) {
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       <BarCard title="Projects by Month" data={byMonth} />
       <BarCard title="Projects by Year" data={byYear} />
-      <PieCard title="Projects by Brand" data={byBrand} />
+      <PieCard title="Projects by Department" data={byDepartment} />
       <PieCard title="Projects by Category" data={byCategory} />
-      <BarCard title="Projects by Department" data={byDepartment} />
     </div>
   );
 }

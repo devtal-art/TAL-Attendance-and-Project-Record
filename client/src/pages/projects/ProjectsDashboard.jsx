@@ -61,9 +61,9 @@ export default function ProjectsDashboard() {
         <p className="text-sm text-gray-500">{filteredProjects.length} of {projects.length} project(s)</p>
       </div>
 
-      <ProjectsFilters filters={filters} onChange={handleFiltersChange} {...filterOptions} />
+      <ProjectsFilters filters={filters} onChange={handleFiltersChange} {...filterOptions} hideBrand />
 
-      <ProjectsSummaryCards records={filteredProjects} />
+      <ProjectsSummaryCards records={filteredProjects} hideBrand />
 
       <ProjectsCharts records={filteredProjects} />
     </div>

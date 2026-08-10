@@ -2,7 +2,7 @@ const Report = require('../models/Report');
 const ExcelJS = require('exceljs');
 const Employee = require('../models/Employee');
 
-const REPORT_POPULATE_FIELDS = 'reportName month year employeeType';
+const REPORT_POPULATE_FIELDS = 'reportName month year employeeType startDate endDate';
 
 // Helper to convert HH:MM string to total minutes
 const parseDurationStr = (str) => {
@@ -117,6 +117,66 @@ exports.getMonthlySummary = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: 'Failed to fetch monthly summary', error: error.message });
+  }
+};
+
+// Attendance data is stored as one aggregate record per employee per
+// uploaded monthly report - there's no daily granularity to slice by exact
+// dates. A "date range" therefore means: find every uploaded report whose
+// own [startDate, endDate] overlaps the requested range, and merge all of
+// their employees (Active + Inactive, across however many months that
+// spans) into one combined dataset, the same way getMonthlySummary already
+// merges Active+Inactive for a single month.
+//
+// Report.startDate/endDate are free-text strings like "01 Jun 2026" (as
+// extracted verbatim from the source Excel), not Date-typed fields, so they
+// can't be range-queried in Mongo directly. The report count is small
+// (one document per uploaded month), so it's fetched in full and the
+// overlap test is done in JS via `new Date(...)`, which parses this
+// "DD Mon YYYY" format correctly - verified against real stored data.
+exports.getRangeSummary = async (req, res) => {
+  try {
+    const { from, to } = req.query;
+    if (!from || !to) {
+      return res.status(400).json({ message: 'from and to are required' });
+    }
+
+    const fromDate = new Date(from);
+    const toDate = new Date(to);
+    if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) {
+      return res.status(400).json({ message: 'Invalid from/to date.' });
+    }
+    if (fromDate > toDate) {
+      return res.status(400).json({ message: '"From" date must be on or before "To" date.' });
+    }
+
+    const allReports = await Report.find().sort({ createdAt: -1 });
+    const matchingReports = allReports.filter((r) => {
+      const reportStart = new Date(r.startDate);
+      const reportEnd = new Date(r.endDate);
+      if (Number.isNaN(reportStart.getTime()) || Number.isNaN(reportEnd.getTime())) return false;
+      return reportStart <= toDate && reportEnd >= fromDate;
+    });
+
+    if (matchingReports.length === 0) {
+      return res.status(404).json({ message: 'No reports found for the selected date range.' });
+    }
+
+    const reportIds = matchingReports.map((r) => r._id);
+    const employees = await Employee.find({ reportId: { $in: reportIds } })
+      .populate('reportId', REPORT_POPULATE_FIELDS)
+      .lean();
+    const employeesWithStatus = attachStatus(employees);
+
+    res.json({
+      range: { from, to },
+      reports: matchingReports,
+      employeeCount: employeesWithStatus.length,
+      aggregate: computeAggregate(employeesWithStatus),
+      employees: employeesWithStatus,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch date range summary', error: error.message });
   }
 };
 

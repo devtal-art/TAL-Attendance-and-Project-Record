@@ -15,12 +15,13 @@ const CARD_DEFS = [
 // Six generic, dynamically-computed metrics reused for both the upload
 // preview and the dashboard - nothing here assumes a fixed vocabulary of
 // brands/categories/departments/etc.
-export default function ProjectsSummaryCards({ records }) {
+export default function ProjectsSummaryCards({ records, hideBrand = false }) {
   const counts = useMemo(() => computeSummaryCounts(records), [records]);
+  const cardDefs = hideBrand ? CARD_DEFS.filter((c) => c.key !== 'brands') : CARD_DEFS;
 
   return (
     <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
-      {CARD_DEFS.map(({ key, label, icon: Icon, color }) => (
+      {cardDefs.map(({ key, label, icon: Icon, color }) => (
         <Card key={key}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-gray-500">{label}</CardTitle>

@@ -34,6 +34,16 @@ export const getMonthlySummary = async (month, year, startDate, endDate) => {
   return response.data;
 };
 
+// Finds every uploaded report whose own period overlaps [from, to] (both
+// 'YYYY-MM-DD') and returns their merged employee data - lets the caller
+// view attendance across a custom date range spanning multiple uploads,
+// not just one month at a time.
+export const getRangeSummary = async (from, to) => {
+  const params = new URLSearchParams({ from, to });
+  const response = await axios.get(`${API_URL}/reports/range-summary?${params.toString()}`);
+  return response.data;
+};
+
 export const deleteReport = async (id) => {
   const response = await axios.delete(`${API_URL}/reports/${id}`);
   return response.data;

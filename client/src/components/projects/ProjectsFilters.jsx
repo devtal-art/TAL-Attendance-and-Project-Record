@@ -55,6 +55,7 @@ export default function ProjectsFilters({
   brands,
   categories,
   departments,
+  hideBrand = false,
 }) {
   const update = (key) => (e) => onChange({ ...filters, [key]: e.target.value });
   const clear = (key) => () => onChange({ ...filters, [key]: DEFAULT_FILTERS[key] });
@@ -89,7 +90,9 @@ export default function ProjectsFilters({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-1 gap-3 lg:gap-3">
           <FilterSelect label="Year" value={filters.year} onChange={update('year')} options={years} allLabel="All Years" />
           <FilterSelect label="Month" value={filters.month} onChange={update('month')} options={months} allLabel="All Months" getOptionLabel={getFullMonthName} />
-          <FilterSelect label="Brand" value={filters.brand} onChange={update('brand')} options={brands} allLabel="All Brands" />
+          {!hideBrand && (
+            <FilterSelect label="Brand" value={filters.brand} onChange={update('brand')} options={brands} allLabel="All Brands" />
+          )}
           <FilterSelect label="Category" value={filters.category} onChange={update('category')} options={categories} allLabel="All Categories" />
           <FilterSelect label="Department" value={filters.department} onChange={update('department')} options={departments} allLabel="All Departments" />
         </div>
@@ -101,7 +104,7 @@ export default function ProjectsFilters({
           {filters.search && <FilterChip label={`"${filters.search}"`} onRemove={clear('search')} />}
           {filters.year !== 'All' && <FilterChip label={filters.year} onRemove={clear('year')} />}
           {filters.month !== 'All' && <FilterChip label={getFullMonthName(filters.month)} onRemove={clear('month')} />}
-          {filters.brand !== 'All' && <FilterChip label={filters.brand} onRemove={clear('brand')} />}
+          {!hideBrand && filters.brand !== 'All' && <FilterChip label={filters.brand} onRemove={clear('brand')} />}
           {filters.category !== 'All' && <FilterChip label={filters.category} onRemove={clear('category')} />}
           {filters.department !== 'All' && <FilterChip label={filters.department} onRemove={clear('department')} />}
           <button

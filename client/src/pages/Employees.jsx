@@ -1,11 +1,19 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { getReports, getMonthlySummary, exportEmployeeMonth, exportEmployeeAll } from '../services/api';
+import { getReports, getEmployees, getRangeSummary, exportEmployeeMonth, exportEmployeeAll } from '../services/api';
 import { useNavigate } from 'react-router-dom';
-import { Input } from '../components/ui/input';
+import AttendanceFilters from '../components/attendance/AttendanceFilters';
+import {
+  buildPeriods,
+  toDateInputValue,
+  DEFAULT_FACET_FILTERS,
+  getUniqueSorted,
+  filterEmployees,
+  sanitizeFacetFilters,
+  aggregateEmployeesByIdentity,
+} from '../components/attendance/attendanceUtils';
 import {
   flexRender,
   getCoreRowModel,
-  getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
@@ -19,120 +27,162 @@ import {
   TableRow,
 } from '../components/ui/table';
 import { Button } from '../components/ui/button';
-import { Search, ChevronLeft, ChevronRight, Download } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Filter } from 'lucide-react';
 
-// Groups the flat report list into one entry per calendar period, since a
-// month can have both an Active and an Inactive report underneath it.
-const buildPeriods = (reports) => {
-  const map = new Map();
-  reports.forEach(r => {
-    const key = `${r.month}|${r.year}|${r.startDate}|${r.endDate}`;
-    if (!map.has(key)) {
-      map.set(key, { key, month: r.month, year: r.year, startDate: r.startDate, endDate: r.endDate });
-    }
-  });
-  return Array.from(map.values());
-};
+// Default view: every employee consolidated into a single row (OT/Remote
+// Days/Working Hours totalled across all their uploaded months - see
+// aggregateEmployeesByIdentity) so nobody appears more than once. Picking a
+// date (From/To or the quick-month shortcut) switches to the detailed,
+// per-month view instead - one row per uploaded record, with the
+// Month/Status/Location columns that only make sense once you're looking
+// at a specific period rather than an employee's totals.
+const AGGREGATED_COLUMNS = [
+  { accessorKey: 'employeeName', header: 'Employee' },
+  { accessorKey: 'employeeId', header: 'Employee ID' },
+  { accessorKey: 'department', header: 'Department' },
+  { accessorKey: 'totalOT', header: 'OT' },
+  { accessorKey: 'remoteDays', header: 'Remote Days' },
+  { accessorKey: 'totalWorkDuration', header: 'Working Hours' },
+];
+
+const DETAILED_COLUMNS = [
+  { accessorKey: 'employeeName', header: 'Employee' },
+  { accessorKey: 'employeeId', header: 'Employee ID' },
+  {
+    id: 'period',
+    header: 'Month',
+    accessorFn: (row) => `${row.reportId?.month ?? ''} ${row.reportId?.year ?? ''}`,
+  },
+  {
+    accessorKey: 'status',
+    header: 'Status',
+    cell: (info) => (info.getValue() === 'ACTIVE' ? '🟢 Active' : '🔴 Inactive'),
+  },
+  { accessorKey: 'department', header: 'Department' },
+  { accessorKey: 'location', header: 'Location' },
+  { accessorKey: 'payrollPresentDays', header: 'Present Days' },
+  { accessorKey: 'totalOT', header: 'OT' },
+  { accessorKey: 'lateBy', header: 'Late By' },
+  { accessorKey: 'remoteDays', header: 'Remote Days' },
+  { accessorKey: 'leavesTaken', header: 'Leaves' },
+  { accessorKey: 'totalWorkDuration', header: 'Working Hours' },
+];
 
 export default function Employees() {
   const [reports, setReports] = useState([]);
-  const [selectedPeriodKey, setSelectedPeriodKey] = useState('');
-  const [employees, setEmployees] = useState([]);
-  const [globalFilter, setGlobalFilter] = useState('');
+  const [allEmployees, setAllEmployees] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [rangeData, setRangeData] = useState(null);
+  const [rangeError, setRangeError] = useState('');
+
+  const [facetFilters, setFacetFilters] = useState(DEFAULT_FACET_FILTERS);
   const navigate = useNavigate();
 
   const periods = useMemo(() => buildPeriods(reports), [reports]);
+  const isDateFilterActive = Boolean(from && to);
 
   useEffect(() => {
-    fetchReports();
+    fetchInitialData();
   }, []);
 
-  const fetchReports = async () => {
+  const fetchInitialData = async () => {
+    setLoading(true);
+    setError('');
     try {
-      const data = await getReports();
-      setReports(data);
-      const allPeriods = buildPeriods(data);
-      if (allPeriods.length > 0) {
-        setSelectedPeriodKey(allPeriods[0].key);
-      }
-    } catch (error) {
-      console.error('Failed to fetch reports', error);
+      const [reportsData, employeesData] = await Promise.all([getReports(), getEmployees()]);
+      setReports(reportsData);
+      setAllEmployees(employeesData);
+    } catch (err) {
+      setError('Failed to load employees.');
+      console.error('Failed to fetch employees', err);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    const period = periods.find(p => p.key === selectedPeriodKey);
-    if (period) {
-      fetchEmployees(period);
+    if (!isDateFilterActive) {
+      setRangeData(null);
+      setRangeError('');
+      return;
     }
-  }, [selectedPeriodKey]);
+    fetchRange(from, to);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [from, to]);
 
-  const fetchEmployees = async (period) => {
+  const fetchRange = async (rangeFrom, rangeTo) => {
+    setRangeError('');
     try {
-      const data = await getMonthlySummary(period.month, period.year, period.startDate, period.endDate);
-      setEmployees(data.employees);
-    } catch (error) {
-      console.error('Failed to fetch employees', error);
+      const data = await getRangeSummary(rangeFrom, rangeTo);
+      setRangeData(data);
+    } catch (err) {
+      setRangeData(null);
+      setRangeError(err.response?.data?.message || 'Failed to fetch employees for this date range.');
     }
   };
 
-  const columns = useMemo(
-    () => [
-      { accessorKey: 'employeeName', header: 'Employee' },
-      { accessorKey: 'employeeId', header: 'Employee ID' },
-      {
-        accessorKey: 'status',
-        header: 'Status',
-        cell: (info) => (info.getValue() === 'ACTIVE' ? '🟢 Active' : '🔴 Inactive'),
-      },
-      { accessorKey: 'department', header: 'Department' },
-      { accessorKey: 'location', header: 'Location' },
-      { accessorKey: 'payrollPresentDays', header: 'Present Days' },
-      { accessorKey: 'totalOT', header: 'OT' },
-      { accessorKey: 'lateBy', header: 'Late By' },
-      { accessorKey: 'remoteDays', header: 'Remote Days' },
-      { accessorKey: 'leavesTaken', header: 'Leaves' },
-      { accessorKey: 'totalWorkDuration', header: 'Working Hours' },
+  const handleSelectPeriod = (period) => {
+    setFrom(toDateInputValue(period.startDate));
+    setTo(toDateInputValue(period.endDate));
+  };
+
+  const handleClearDateRange = () => {
+    setFrom('');
+    setTo('');
+  };
+
+  const baseRows = useMemo(() => {
+    if (isDateFilterActive) return rangeData?.employees || [];
+    return aggregateEmployeesByIdentity(allEmployees);
+  }, [isDateFilterActive, rangeData, allEmployees]);
+
+  const departmentOptions = useMemo(() => getUniqueSorted(baseRows, 'department'), [baseRows]);
+
+  const employees = useMemo(() => filterEmployees(baseRows, facetFilters), [baseRows, facetFilters]);
+
+  const columns = useMemo(() => {
+    const base = isDateFilterActive ? DETAILED_COLUMNS : AGGREGATED_COLUMNS;
+    return [
+      ...base,
       {
         id: 'actions',
         header: 'Export',
         cell: ({ row }) => {
           const emp = row.original;
-          const period = periods.find(p => p.key === selectedPeriodKey);
+          const period = emp.reportId;
           return (
             <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-              <button
-                title={`Download ${period?.month} ${period?.year}`}
-                onClick={() =>
-                  period &&
-                  exportEmployeeMonth(
-                    emp._id,
-                    period.month,
-                    period.year,
-                    period.startDate,
-                    period.endDate
-                  )
-                }
-                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
-              >
-                <Download className="w-3 h-3" />
-                Month
-              </button>
+              {isDateFilterActive && (
+                <button
+                  title={period ? `Download ${period.month} ${period.year}` : 'Download this month'}
+                  onClick={() =>
+                    period &&
+                    exportEmployeeMonth(emp._id, period.month, period.year, period.startDate, period.endDate)
+                  }
+                  className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                >
+                  <Download className="w-3 h-3" />
+                  Month
+                </button>
+              )}
               <button
                 title="Download all months"
                 onClick={() => exportEmployeeAll(emp._id)}
                 className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors"
               >
                 <Download className="w-3 h-3" />
-                All
+                {isDateFilterActive ? 'All' : 'Export'}
               </button>
             </div>
           );
         },
       },
-    ],
-    [selectedPeriodKey, periods]
-  );
+    ];
+  }, [isDateFilterActive]);
 
   const table = useReactTable({
     data: employees,
@@ -140,46 +190,53 @@ export default function Employees() {
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
     initialState: {
       pagination: {
         pageSize: 20,
       },
     },
-    state: {
-      globalFilter,
-    },
-    onGlobalFilterChange: setGlobalFilter,
   });
 
   return (
     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 space-y-4 sm:space-y-0">
-        <h2 className="text-xl font-bold text-gray-900">Employees List</h2>
+      <h2 className="text-xl font-bold text-gray-900 mb-4">Employees List</h2>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-            <Input
-              placeholder="Search employees..."
-              value={globalFilter ?? ''}
-              onChange={(e) => setGlobalFilter(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-          <select
-            value={selectedPeriodKey}
-            onChange={(e) => setSelectedPeriodKey(e.target.value)}
-            className="border border-gray-300 rounded-md p-2 text-sm focus:ring-primary focus:border-primary w-full sm:w-auto"
-          >
-            {periods.map(p => (
-              <option key={p.key} value={p.key}>{p.month} {p.year}</option>
-            ))}
-          </select>
+      <div className="bg-gray-50/70 p-4 sm:p-5 rounded-xl border border-gray-200 mb-6">
+        <div className="flex items-center gap-2 mb-3 text-sm font-semibold text-gray-700">
+          <Filter className="w-4 h-4 text-primary" /> Filters
         </div>
+        <AttendanceFilters
+          showDateRange
+          dateRangeOptional
+          onClearDateRange={handleClearDateRange}
+          from={from}
+          to={to}
+          onFromChange={setFrom}
+          onToChange={setTo}
+          periods={periods}
+          onSelectPeriod={handleSelectPeriod}
+          facetFilters={facetFilters}
+          onFacetChange={(next) => setFacetFilters(sanitizeFacetFilters(baseRows, next))}
+          departments={departmentOptions}
+        />
+        {!isDateFilterActive && (
+          <p className="text-xs text-gray-400 mt-3">
+            Showing every employee's overall totals across all uploaded months. Pick a date above to see individual monthly records instead.
+          </p>
+        )}
       </div>
 
-      <Table className="min-w-[960px]">
+      {(error || rangeError) && (
+        <div className="mb-4 p-4 bg-red-50 text-red-700 rounded-lg text-sm">{error || rangeError}</div>
+      )}
+
+      {!loading && (
+        <p className="text-sm text-gray-500 mb-3">
+          {employees.length} of {baseRows.length} {isDateFilterActive ? 'employee record(s)' : 'employee(s)'}
+        </p>
+      )}
+
+      <Table className="min-w-[1080px]">
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
@@ -205,7 +262,10 @@ export default function Employees() {
                 key={row.id}
                 data-state={row.getIsSelected() && "selected"}
                 className="cursor-pointer hover:bg-gray-50"
-                onClick={() => navigate(`/employees/${row.original._id}`)}
+                onClick={() => {
+                  const query = isDateFilterActive ? `?from=${from}&to=${to}` : '';
+                  navigate(`/employees/${row.original.employeeId}${query}`);
+                }}
               >
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id}>
@@ -217,7 +277,7 @@ export default function Employees() {
           ) : (
             <TableRow>
               <TableCell colSpan={columns.length} className="h-24 text-center">
-                No employees found.
+                {loading ? 'Loading...' : 'No employees found.'}
               </TableCell>
             </TableRow>
           )}

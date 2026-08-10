@@ -26,6 +26,7 @@ router.post('/upload', handleUpload, uploadController.uploadReports);
 // Report Routes
 router.get('/reports', reportController.getReports);
 router.get('/reports/monthly-summary', reportController.getMonthlySummary);
+router.get('/reports/range-summary', reportController.getRangeSummary);
 router.get('/reports/:id', reportController.getReportById);
 router.delete('/reports/:id', reportController.deleteReport);
 
