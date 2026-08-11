@@ -80,7 +80,11 @@ export default function ProjectsList() {
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col lg:h-[calc(100vh-8rem)]">
+    <div
+      className={`bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col ${
+        viewMode === 'table' ? '' : 'lg:h-[calc(100vh-8rem)]'
+      }`}
+    >
       <div className="p-6 pb-0 shrink-0">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
           <div>
@@ -118,20 +122,24 @@ export default function ProjectsList() {
         </div>
       </div>
 
-      {/* Below lg the card above is auto-height (its fixed viewport-relative
-          height is lg-only), so this box needs its own determinate height
-          for HierarchyTree/ProjectsSimpleTable's internal h-full scroll
-          regions to size against - otherwise a tall stacked mobile filter
-          set can squeeze this down to nothing via flex-1/min-h-0. At lg+
-          this is unchanged from the original flex-1/min-h-0 fill-remaining-
-          space behavior. */}
-      <div className="h-[70vh] lg:h-auto lg:flex-1 lg:min-h-0 p-6 pt-4">
-        {viewMode === 'table' ? (
+      {viewMode === 'table' ? (
+        // Table view isn't clamped to the viewport: ProjectsSimpleTable
+        // sets its own min-height (enough for ~20 rows) so the page scrolls
+        // naturally instead of cramming rows into a short internal-scroll box.
+        <div className="p-6 pt-4">
           <ProjectsSimpleTable records={filteredProjects} />
-        ) : (
+        </div>
+      ) : (
+        // Below lg the card above is auto-height (its fixed viewport-relative
+        // height is lg-only), so this box needs its own determinate height
+        // for HierarchyTree's internal h-full scroll region to size against -
+        // otherwise a tall stacked mobile filter set can squeeze this down to
+        // nothing via flex-1/min-h-0. At lg+ this is unchanged from the
+        // original flex-1/min-h-0 fill-remaining-space behavior.
+        <div className="h-[70vh] lg:h-auto lg:flex-1 lg:min-h-0 p-6 pt-4">
           <HierarchyTree records={filteredProjects} fillHeight searchActive={searchActive} totalCount={projects.length} />
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -12,6 +12,7 @@ import { ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, FolderOpen 
 import { getTagChipStyle, getDepartmentChipStyle, BRAND_CHIP_STYLE, monthIndex } from './constants';
 
 const PAGE_SIZE = 50;
+const PAGE_SIZE_OPTIONS = [20, 50, 100, 150, 200];
 
 const monthYearSortingFn = (rowA, rowB) => {
   const a = rowA.original;
@@ -75,6 +76,8 @@ export default function ProjectsSimpleTable({ records }) {
     [],
   );
 
+  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: PAGE_SIZE });
+
   const table = useReactTable({
     data: records,
     columns,
@@ -82,15 +85,15 @@ export default function ProjectsSimpleTable({ records }) {
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     onSortingChange: setSorting,
-    initialState: { pagination: { pageSize: PAGE_SIZE } },
-    state: { sorting },
+    onPaginationChange: setPagination,
+    state: { sorting, pagination },
   });
 
   const rows = table.getRowModel().rows;
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex-1 min-h-0 overflow-auto rounded-lg border border-gray-200">
+    <div className="flex flex-col">
+      <div className="min-h-[920px] overflow-auto rounded-lg border border-gray-200">
         <table className="w-full min-w-[640px] caption-bottom text-sm">
           <colgroup>
             <col style={{ width: '16%' }} />
@@ -146,9 +149,23 @@ export default function ProjectsSimpleTable({ records }) {
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2 pt-4 shrink-0">
-        <span className="text-sm text-gray-500">
-          {records.length} project{records.length === 1 ? '' : 's'} total
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-500">
+            {records.length} project{records.length === 1 ? '' : 's'} total
+          </span>
+          <label className="flex items-center gap-1.5 text-sm text-gray-500">
+            Show
+            <select
+              className="border border-gray-300 rounded-md py-1 pl-2 pr-6 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-white cursor-pointer"
+              value={pagination.pageSize}
+              onChange={(e) => setPagination({ pageIndex: 0, pageSize: Number(e.target.value) })}
+            >
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <option key={size} value={size}>{size}</option>
+              ))}
+            </select>
+          </label>
+        </div>
         <div className="flex items-center space-x-2">
           <Button variant="outline" size="sm" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>
             <ChevronLeft className="h-4 w-4 mr-1" /> Previous
