@@ -1,7 +1,7 @@
 import React from 'react';
 import { Search, X, ChevronDown, CalendarRange } from 'lucide-react';
 import { Input } from '../ui/input';
-import { DEFAULT_FACET_FILTERS } from './attendanceUtils';
+import { DEFAULT_FACET_FILTERS, buildYearPeriods } from './attendanceUtils';
 
 const SELECT_CLASS =
   'w-full border border-gray-300 rounded-md py-2 pl-3 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-white appearance-none cursor-pointer';
@@ -56,6 +56,7 @@ export default function AttendanceFilters({
   const clearFacet = (key) => () => onFacetChange({ ...facetFilters, [key]: DEFAULT_FACET_FILTERS[key] });
   const isFacetFiltered = Object.keys(DEFAULT_FACET_FILTERS).some((key) => facetFilters[key] !== DEFAULT_FACET_FILTERS[key]);
   const isDateRangeActive = dateRangeOptional && from && to;
+  const yearPeriods = showDateRange ? buildYearPeriods(periods) : [];
 
   return (
     <div>
@@ -91,6 +92,28 @@ export default function AttendanceFilters({
                   </option>
                   {periods.map((p) => (
                     <option key={p.key} value={p.key}>{p.month} {p.year}</option>
+                  ))}
+                </select>
+                <CalendarRange className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+              </div>
+            </div>
+
+            <div className="w-full lg:w-36">
+              <label className="block text-xs font-medium text-gray-500 mb-1">Quick select year</label>
+              <div className="relative w-full">
+                <select
+                  className={SELECT_CLASS}
+                  value=""
+                  onChange={(e) => {
+                    const period = yearPeriods.find((p) => p.key === e.target.value);
+                    if (period) onSelectPeriod(period);
+                  }}
+                >
+                  <option value="" disabled>
+                    {yearPeriods.length ? 'Jump to a year...' : 'No uploaded years'}
+                  </option>
+                  {yearPeriods.map((p) => (
+                    <option key={p.key} value={p.key}>{p.year}</option>
                   ))}
                 </select>
                 <CalendarRange className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />

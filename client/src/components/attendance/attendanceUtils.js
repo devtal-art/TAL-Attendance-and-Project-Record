@@ -1,6 +1,9 @@
 // Groups the flat report list into one entry per calendar period, since a
 // month can have both an Active and an Inactive report underneath it.
-// Shared by Dashboard and Employees so the two pages can't drift.
+// Shared by Dashboard and Employees so the two pages can't drift. Sorted by
+// actual calendar date (newest first) rather than insertion/upload order,
+// since reports aren't necessarily uploaded in chronological order (e.g. a
+// backfilled earlier month uploaded after later months already exist).
 export const buildPeriods = (reports) => {
   const map = new Map();
   reports.forEach((r) => {
@@ -9,7 +12,27 @@ export const buildPeriods = (reports) => {
       map.set(key, { key, month: r.month, year: r.year, startDate: r.startDate, endDate: r.endDate });
     }
   });
-  return Array.from(map.values());
+  return Array.from(map.values()).sort((a, b) => new Date(b.startDate) - new Date(a.startDate));
+};
+
+// Collapses periods into one entry per calendar year, spanning that year's
+// earliest report start to its latest report end - used for the "Quick
+// select year" shortcut. Shares the same {key, startDate, endDate} shape as
+// buildPeriods entries (minus `month`) so it can be fed straight into the
+// same onSelectPeriod handler Dashboard/Employees already use for months;
+// those handlers only ever read startDate/endDate off the period object.
+export const buildYearPeriods = (periods) => {
+  const map = new Map();
+  periods.forEach((p) => {
+    const existing = map.get(p.year);
+    if (!existing) {
+      map.set(p.year, { key: `year|${p.year}`, year: p.year, startDate: p.startDate, endDate: p.endDate });
+      return;
+    }
+    if (new Date(p.startDate) < new Date(existing.startDate)) existing.startDate = p.startDate;
+    if (new Date(p.endDate) > new Date(existing.endDate)) existing.endDate = p.endDate;
+  });
+  return Array.from(map.values()).sort((a, b) => Number(b.year) - Number(a.year));
 };
 
 // 'YYYY-MM-DD' string for a native <input type="date"> from a stored
