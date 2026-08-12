@@ -14,7 +14,7 @@ import {
   LabelList,
 } from 'recharts';
 import { getUniqueSorted } from './dataUtils';
-import { CATEGORICAL_PALETTE } from './constants';
+import { getTagColor, getDepartmentColor, getDistinctColorMap } from './constants';
 
 const GRIDLINE = '#e1e0d9';
 const AXIS_TEXT = '#898781';
@@ -78,7 +78,12 @@ function BarCard({ title, data }) {
   );
 }
 
-function PieCard({ title, data }) {
+function PieCard({ title, data, colorFn }) {
+  const colorMap = useMemo(
+    () => getDistinctColorMap(data.filter((d) => d.name !== 'Other').map((d) => d.name), colorFn),
+    [data, colorFn],
+  );
+  const colorFor = (name) => (name === 'Other' ? OTHER_COLOR : colorMap.get(name));
   return (
     <Card>
       <CardHeader>
@@ -93,10 +98,10 @@ function PieCard({ title, data }) {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie data={data} cx="50%" cy="50%" innerRadius={50} outerRadius={85} paddingAngle={2} dataKey="value" labelLine={false}>
-                  {data.map((entry, index) => (
+                  {data.map((entry) => (
                     <Cell
                       key={entry.name}
-                      fill={entry.name === 'Other' ? OTHER_COLOR : CATEGORICAL_PALETTE[index % CATEGORICAL_PALETTE.length]}
+                      fill={colorFor(entry.name)}
                       stroke="#fcfcfb"
                       strokeWidth={2}
                     />
@@ -108,11 +113,11 @@ function PieCard({ title, data }) {
           </div>
           <div className="w-full flex-1 flex flex-col justify-center gap-2 overflow-y-auto max-h-64 pr-1">
             {data.length === 0 && <p className="text-sm text-gray-400 text-center">No data available</p>}
-            {data.map((entry, index) => (
+            {data.map((entry) => (
               <div key={entry.name} className="flex items-center gap-2 min-w-0">
                 <span
                   className="flex-shrink-0 w-3 h-3 rounded-full"
-                  style={{ backgroundColor: entry.name === 'Other' ? OTHER_COLOR : CATEGORICAL_PALETTE[index % CATEGORICAL_PALETTE.length] }}
+                  style={{ backgroundColor: colorFor(entry.name) }}
                 />
                 <span className="flex-1 text-sm text-gray-700 truncate" title={entry.name}>{entry.name}</span>
                 <span className="flex-shrink-0 text-sm font-semibold text-gray-900">{entry.value}</span>
@@ -150,8 +155,8 @@ export default function ProjectsCharts({ records }) {
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       <BarCard title="Projects by Month" data={byMonth} />
       <BarCard title="Projects by Year" data={byYear} />
-      <PieCard title="Projects by Department" data={byDepartment} />
-      <PieCard title="Projects by Category" data={byCategory} />
+      <PieCard title="Projects by Department" data={byDepartment} colorFn={getDepartmentColor} />
+      <PieCard title="Projects by Category" data={byCategory} colorFn={getTagColor} />
     </div>
   );
 }

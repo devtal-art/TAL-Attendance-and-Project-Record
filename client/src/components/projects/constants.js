@@ -58,6 +58,39 @@ export const getTagColor = (value) => {
   return CATEGORICAL_PALETTE[hashString(normalized.toLowerCase()) % CATEGORICAL_PALETTE.length];
 };
 
+// Category/department names are free text, so hashing into an 8-color
+// palette can send two different names to the same slot (birthday-paradox
+// odds are high once a chart shows 6-7 slices). Chip colors (single value,
+// no neighbors) can tolerate that, but a chart where every slice must read
+// as visually distinct cannot. This resolves collisions among a specific
+// set of names shown together: each name keeps its hash color as first
+// choice, and only a colliding name is bumped to the next free palette
+// slot - processed in alphabetical (not count-rank) order so the outcome
+// doesn't reshuffle just because the sheet's totals changed.
+export const getDistinctColorMap = (names, baseColorFn, palette = CATEGORICAL_PALETTE) => {
+  const used = new Set();
+  const result = new Map();
+  const ordered = [...new Set(names)].sort((a, b) => a.localeCompare(b));
+  ordered.forEach((name) => {
+    const preferred = baseColorFn(name);
+    let color = preferred;
+    if (used.has(color)) {
+      const startIdx = palette.indexOf(preferred);
+      const start = startIdx === -1 ? 0 : startIdx;
+      for (let step = 1; step <= palette.length; step += 1) {
+        const candidate = palette[(start + step) % palette.length];
+        if (!used.has(candidate)) {
+          color = candidate;
+          break;
+        }
+      }
+    }
+    used.add(color);
+    result.set(name, color);
+  });
+  return result;
+};
+
 export const getTagChipStyle = (value) => {
   const color = getTagColor(value);
   return { backgroundColor: `${color}1f`, color };

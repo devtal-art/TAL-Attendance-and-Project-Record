@@ -1,4 +1,5 @@
 const xlsx = require('xlsx');
+const { normalizeDepartment } = require('../utils/departmentMap');
 
 function extractMetrics(rows) {
   const metrics = {};
@@ -96,7 +97,7 @@ exports.parseAttendanceReport = (filePath) => {
       if (valRow) {
         const company = valRow[0];
         const employeeId = valRow[2];
-        const department = valRow[4];
+        const department = normalizeDepartment(valRow[4]);
         const location = valRow[6];
         const employeeName = valRow[8];
 
