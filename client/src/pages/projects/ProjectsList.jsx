@@ -7,7 +7,7 @@ import ProjectsFilters from '../../components/projects/ProjectsFilters';
 import ProjectsSimpleTable from '../../components/projects/ProjectsSimpleTable';
 import HierarchyTree from '../../components/projects/HierarchyTree';
 import { getProjects } from '../../services/projectsApi';
-import { DEFAULT_FILTERS, filterRecords, getCascadingFilterOptions, sanitizeFilters } from '../../components/projects/dataUtils';
+import { DEFAULT_FILTERS, filterRecords, getCascadingFilterOptions, sanitizeFilters, formatLinksForExport } from '../../components/projects/dataUtils';
 
 export default function ProjectsList() {
   const [projects, setProjects] = useState([]);
@@ -42,17 +42,24 @@ export default function ProjectsList() {
   // set that doesn't match what's displayed.
   const handleFiltersChange = (next) => setFilters(sanitizeFilters(projects, next));
 
+  // Column headers here match the import format exactly (see
+  // projectExcelParser.service.js's HEADER_ALIASES / OPTIONAL_HEADER_ALIASES)
+  // so an exported file can be re-uploaded as-is - including 'Task Name'
+  // rather than 'Project Name', which the parser would otherwise resolve to
+  // Category (its own accepted alias), not Task Name.
   const handleExport = () => {
     const rows = filteredProjects.map((r) => ({
       Year: r.year,
       Brand: r.brand,
       Category: r.category,
       Department: r.department,
+      'Week No.': r.weekNo || '',
       Month: r.month,
-      'Project Name': r.taskName,
+      'Task Name': r.taskName,
+      Links: formatLinksForExport(r.links),
     }));
     const worksheet = XLSX.utils.json_to_sheet(rows);
-    worksheet['!cols'] = [{ wch: 6 }, { wch: 24 }, { wch: 22 }, { wch: 16 }, { wch: 8 }, { wch: 40 }];
+    worksheet['!cols'] = [{ wch: 6 }, { wch: 24 }, { wch: 22 }, { wch: 16 }, { wch: 9 }, { wch: 8 }, { wch: 40 }, { wch: 55 }];
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Projects');
     XLSX.writeFile(workbook, `projects_export_${Date.now()}.xlsx`);

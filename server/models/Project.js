@@ -25,6 +25,21 @@ const projectSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  // Both optional and additive: sheets uploaded before this feature existed
+  // have neither field, and existing saved documents are never touched to
+  // backfill them - the frontend treats a missing weekNo/links exactly like
+  // an empty one (see ProjectLinks.jsx, ProjectsSimpleTable.jsx).
+  weekNo: {
+    type: String,
+    default: '',
+  },
+  links: [
+    {
+      _id: false,
+      label: { type: String, required: true },
+      url: { type: String, required: true },
+    },
+  ],
 }, { timestamps: true });
 
 module.exports = mongoose.model('Project', projectSchema, 'project_tasks');

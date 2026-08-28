@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useRef } from 'react';
-import { Upload as UploadIcon, FileSpreadsheet, X, AlertCircle, CheckCircle2, ListTree, Table2, ArrowLeft } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { Upload as UploadIcon, FileSpreadsheet, X, AlertCircle, CheckCircle2, ListTree, Table2, ArrowLeft, Download } from 'lucide-react';
 import { previewProjectsExcel, uploadProjectsExcel } from '../../services/projectsApi';
 import { Button } from '../../components/ui/button';
 import ProjectsSummaryCards from '../../components/projects/ProjectsSummaryCards';
@@ -7,6 +8,53 @@ import HierarchyTree from '../../components/projects/HierarchyTree';
 import ProjectsTable from '../../components/projects/ProjectsTable';
 import ValidationDuplicatesPanel from '../../components/projects/ValidationDuplicatesPanel';
 import { useNavigate } from 'react-router-dom';
+
+// Mirrors the exact headers projectExcelParser.service.js resolves on the
+// server: Year, Brand, Category, Department, Month, Task Name are required;
+// Week No. and Links are optional (a sheet without them still parses fine -
+// see the parser's OPTIONAL_HEADER_ALIASES). Links demonstrates the one
+// line per "Label: https://..." pair format the parser expects; a row left
+// blank there shows that's fine too.
+const SAMPLE_ROWS = [
+  {
+    Year: 2026,
+    Brand: 'Norris Hauz Cafe',
+    Category: 'Social Media',
+    Department: 'Design',
+    'Week No.': 3,
+    Month: 'Jan',
+    'Task Name': 'Instagram post - new menu launch',
+    Links: 'Screenshot: https://shortlink.gs39.co.in/r.php?c=B372Mv\nScreenshot 2: https://shortlink.gs39.co.in/r.php?c=fFUGDY',
+  },
+  {
+    Year: 2026,
+    Brand: 'Norris Hauz Cafe',
+    Category: 'Website',
+    Department: 'Development',
+    'Week No.': '',
+    Month: 'Jan',
+    'Task Name': 'Homepage banner update',
+    Links: '',
+  },
+  {
+    Year: 2026,
+    Brand: 'Example Brand',
+    Category: 'Poster, Flyer & Catalogue',
+    Department: 'Digital Marketing',
+    'Week No.': 8,
+    Month: 'Feb',
+    'Task Name': 'Ramadan promo flyer',
+    Links: 'Screenshot: https://shortlink.gs39.co.in/r.php?c=fFUGDY',
+  },
+];
+
+const downloadSampleSheet = () => {
+  const worksheet = XLSX.utils.json_to_sheet(SAMPLE_ROWS);
+  worksheet['!cols'] = [{ wch: 6 }, { wch: 20 }, { wch: 24 }, { wch: 18 }, { wch: 9 }, { wch: 8 }, { wch: 40 }, { wch: 55 }];
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Projects');
+  XLSX.writeFile(workbook, 'project_sheet_sample_format.xlsx');
+};
 
 export default function ProjectsUpload() {
   const [file, setFile] = useState(null);
@@ -118,6 +166,7 @@ export default function ProjectsUpload() {
             <div className="min-w-0">
               <h2 className="text-xl font-bold text-gray-900">Review before saving</h2>
               <p className="text-sm text-gray-500 truncate max-w-md">{file?.name}</p>
+              <p className="text-xs text-gray-400 mt-0.5">New rows are added to your existing projects — nothing already saved is deleted or changed.</p>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -148,6 +197,7 @@ export default function ProjectsUpload() {
           records={previewData.records}
           invalidCount={previewData.invalidCount}
           duplicateCount={previewData.duplicateCount}
+          existingDuplicateCount={previewData.existingDuplicateCount}
         />
 
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
@@ -177,7 +227,7 @@ export default function ProjectsUpload() {
           ) : (
             <ProjectsTable
               records={previewData.records}
-              getRowFlags={(r) => ({ invalid: !r.valid, duplicate: r.isDuplicate })}
+              getRowFlags={(r) => ({ invalid: !r.valid, duplicate: r.isDuplicate || r.existsInDatabase })}
             />
           )}
         </div>
@@ -189,9 +239,17 @@ export default function ProjectsUpload() {
     <div className="max-w-2xl mx-auto mt-10">
       <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
         <h2 className="text-2xl font-bold text-gray-800 mb-2 text-center">Upload Project Sheet</h2>
-        <p className="text-sm text-gray-500 mb-6 text-center">
+        <p className="text-sm text-gray-500 mb-1 text-center">
           Required columns: Year, Brand, Category, Department, Month, Task Name
         </p>
+        <p className="text-xs text-gray-400 mb-4 text-center">
+          Optional: Week No., Links (one "Label: https://..." per line) — see the sample format
+        </p>
+        <div className="flex justify-center mb-6">
+          <Button type="button" variant="outline" size="sm" onClick={downloadSampleSheet}>
+            <Download className="w-4 h-4 mr-2" /> Download Sample Format
+          </Button>
+        </div>
 
         {!file ? (
           <div
@@ -255,7 +313,7 @@ export default function ProjectsUpload() {
               {isParsing ? 'Parsing...' : 'Process File'}
             </Button>
             <p className="text-xs text-gray-400 mt-3 text-center">
-              You'll be able to review the parsed data before it's saved.
+              You'll be able to review the parsed data before it's saved. New rows are added to your existing projects — nothing already saved is deleted.
             </p>
           </div>
         )}

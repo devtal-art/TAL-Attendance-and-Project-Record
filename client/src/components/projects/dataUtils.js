@@ -1,5 +1,11 @@
 import { monthIndex } from './constants';
 
+// Inverse of the server parser's Links-cell format (one "Label: https://..."
+// pair per line) - used by the Export button so a re-uploaded export round
+// trips back into the same links, not lost text.
+export const formatLinksForExport = (links) =>
+  (links || []).map((l) => `${l.label}: ${l.url}`).join('\n');
+
 // Distinct values actually present in the data for a given field - filter
 // dropdowns and chart categories are always derived from this, never a
 // hardcoded list, since brands/categories/departments/years/months are all

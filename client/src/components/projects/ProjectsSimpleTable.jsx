@@ -10,6 +10,7 @@ import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/ta
 import { Button } from '../ui/button';
 import { ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, FolderOpen } from 'lucide-react';
 import { getTagChipStyle, getDepartmentChipStyle, BRAND_CHIP_STYLE, monthIndex } from './constants';
+import ProjectLinks from './ProjectLinks';
 
 const PAGE_SIZE = 50;
 const PAGE_SIZE_OPTIONS = [20, 50, 100, 150, 200];
@@ -66,11 +67,23 @@ export default function ProjectsSimpleTable({ records }) {
         ),
       },
       {
+        accessorKey: 'weekNo',
+        header: 'Week No.',
+        sortingFn: 'alphanumeric',
+        cell: (info) => <span className="text-sm text-gray-700">{info.getValue() || '-'}</span>,
+      },
+      {
         id: 'monthYear',
         header: 'Month/Year',
         accessorFn: (row) => `${row.month} ${row.year}`,
         sortingFn: monthYearSortingFn,
         cell: (info) => <span className="text-sm text-gray-700">{info.getValue()}</span>,
+      },
+      {
+        id: 'links',
+        header: 'Links',
+        enableSorting: false,
+        cell: ({ row }) => <ProjectLinks links={row.original.links} />,
       },
     ],
     [],
@@ -96,28 +109,35 @@ export default function ProjectsSimpleTable({ records }) {
       <div className="min-h-[920px] overflow-auto rounded-lg border border-gray-200">
         <table className="w-full min-w-[640px] caption-bottom text-sm">
           <colgroup>
-            <col style={{ width: '16%' }} />
-            <col style={{ width: '36%' }} />
-            <col style={{ width: '18%' }} />
-            <col style={{ width: '16%' }} />
-            <col style={{ width: '14%' }} />
+            <col style={{ width: '13%' }} />
+            <col style={{ width: '27%' }} />
+            <col style={{ width: '13%' }} />
+            <col style={{ width: '13%' }} />
+            <col style={{ width: '9%' }} />
+            <col style={{ width: '12%' }} />
+            <col style={{ width: '7%' }} />
           </colgroup>
           <TableHeader className="sticky top-0 z-20 bg-gray-50 shadow-sm">
             <TableRow>
               {table.getHeaderGroups()[0].headers.map((header) => {
                 const sortDir = header.column.getIsSorted();
+                const canSort = header.column.getCanSort();
                 return (
                   <TableHead key={header.id} className="bg-gray-50 px-4 py-3">
-                    <button
-                      type="button"
-                      className="inline-flex items-center gap-1 select-none hover:text-gray-900"
-                      onClick={header.column.getToggleSortingHandler()}
-                    >
-                      {flexRender(header.column.columnDef.header, header.getContext())}
-                      {sortDir === 'asc' && <ArrowUp className="w-3.5 h-3.5" />}
-                      {sortDir === 'desc' && <ArrowDown className="w-3.5 h-3.5" />}
-                      {!sortDir && <ArrowUpDown className="w-3.5 h-3.5 text-gray-300" />}
-                    </button>
+                    {canSort ? (
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 select-none hover:text-gray-900"
+                        onClick={header.column.getToggleSortingHandler()}
+                      >
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                        {sortDir === 'asc' && <ArrowUp className="w-3.5 h-3.5" />}
+                        {sortDir === 'desc' && <ArrowDown className="w-3.5 h-3.5" />}
+                        {!sortDir && <ArrowUpDown className="w-3.5 h-3.5 text-gray-300" />}
+                      </button>
+                    ) : (
+                      flexRender(header.column.columnDef.header, header.getContext())
+                    )}
                   </TableHead>
                 );
               })}
@@ -136,7 +156,7 @@ export default function ProjectsSimpleTable({ records }) {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={5} className="h-48 text-center">
+                <TableCell colSpan={7} className="h-48 text-center">
                   <div className="flex flex-col items-center justify-center gap-2 text-gray-400">
                     <FolderOpen className="w-8 h-8" />
                     <span className="text-sm">No projects match the current filters.</span>

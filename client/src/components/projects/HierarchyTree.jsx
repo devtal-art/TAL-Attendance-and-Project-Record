@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ChevronRight, ChevronDown, ListTree } from 'lucide-react';
 import { buildHierarchy, DEFAULT_HIERARCHY_LEVELS, getUniqueSorted } from './dataUtils';
 import { getTagChipStyle, getDepartmentChipStyle, getFullMonthName } from './constants';
+import ProjectLinks from './ProjectLinks';
 
 // Month is stored/grouped by its short form (Jan, Feb, ...) so sorting and
 // keys stay simple, but it reads better spelled out in the tree.
@@ -98,6 +99,8 @@ function Node({ node, level, levelFields, path, expanded, onToggle }) {
             <li key={project._id || i} className="text-sm text-gray-700 py-1 flex items-start gap-2">
               <span className="text-gray-300 shrink-0 mt-0.5">&bull;</span>
               <span className="flex-1 min-w-0 break-words">{project.taskName}</span>
+              <span className="shrink-0 whitespace-nowrap text-xs text-gray-400 mt-0.5">Week no. {project.weekNo || '-'}</span>
+              <span className="shrink-0 mt-0.5"><ProjectLinks links={project.links} /></span>
               {project.department && (
                 <span
                   className="shrink-0 whitespace-nowrap inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium"

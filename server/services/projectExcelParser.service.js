@@ -14,6 +14,15 @@ const HEADER_ALIASES = {
   taskName: ['task name', 'task names', 'task'],
 };
 const REQUIRED_FIELDS = Object.keys(HEADER_ALIASES);
+
+// Unlike REQUIRED_FIELDS, a sheet missing these columns is still valid - a
+// row simply gets an empty weekNo / no links, same as any already-saved
+// project from before this feature existed. Never affects row validity,
+// the duplicate key, or anything about the required-field flow above.
+const OPTIONAL_HEADER_ALIASES = {
+  weekNo: ['week no', 'week no.', 'week number', 'week'],
+  links: ['links', 'link'],
+};
 const CANONICAL_LABELS = {
   year: 'Year',
   brand: 'Brand',
@@ -27,6 +36,38 @@ const INVALID_FORMAT_MESSAGE =
 
 const normalizeHeader = (value) => String(value ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
 const normalizeValue = (value) => String(value ?? '').trim().replace(/\s+/g, ' ');
+
+// Strict-duplicate key: exact (case-insensitive) match across every required
+// field. Shared by the in-file duplicate check below and by the controller's
+// cross-check against what's already saved, so "duplicate" means the same
+// thing in both places.
+const buildDedupeKey = (record) =>
+  REQUIRED_FIELDS.map((field) => String(record[field] ?? '').trim().toLowerCase()).join('|');
+exports.buildDedupeKey = buildDedupeKey;
+
+// A Links cell is expected to be one "Label: https://..." pair per line
+// (Excel/CSV cells commonly wrap this way via Alt+Enter). Each line is
+// parsed independently; a line with no recognizable URL is silently
+// skipped rather than rejected, since Links is optional and best-effort.
+const URL_PATTERN = /(https?:\/\/\S+)/i;
+
+const parseLinks = (cellValue) => {
+  const raw = String(cellValue ?? '');
+  if (!raw.trim()) return [];
+
+  return raw
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const match = line.match(URL_PATTERN);
+      if (!match) return null;
+      const url = match[1].trim();
+      const label = line.slice(0, match.index).replace(/:\s*$/, '').trim() || 'Link';
+      return { label, url };
+    })
+    .filter(Boolean);
+};
 
 const invalidFormatError = () => {
   const error = new Error(INVALID_FORMAT_MESSAGE);
@@ -84,6 +125,15 @@ exports.parseProjectsExcel = (filePath) => {
     throw invalidFormatError();
   }
 
+  const optionalFieldToColumnIndex = {};
+  Object.keys(OPTIONAL_HEADER_ALIASES).forEach((field) => {
+    const aliases = OPTIONAL_HEADER_ALIASES[field];
+    const columnIndex = normalizedHeaders.findIndex((header) => aliases.includes(header));
+    if (columnIndex !== -1) {
+      optionalFieldToColumnIndex[field] = columnIndex;
+    }
+  });
+
   const dataRows = rows.slice(1);
   const records = [];
 
@@ -96,6 +146,8 @@ exports.parseProjectsExcel = (filePath) => {
       department: normalizeValue(row[fieldToColumnIndex.department]),
       month: normalizeValue(row[fieldToColumnIndex.month]),
       taskName: normalizeValue(row[fieldToColumnIndex.taskName]),
+      weekNo: 'weekNo' in optionalFieldToColumnIndex ? normalizeValue(row[optionalFieldToColumnIndex.weekNo]) : '',
+      links: 'links' in optionalFieldToColumnIndex ? parseLinks(row[optionalFieldToColumnIndex.links]) : [],
     };
 
     const yearNum = parseInt(record.year, 10);
@@ -116,7 +168,7 @@ exports.parseProjectsExcel = (filePath) => {
   const duplicateGroups = new Map();
   records.forEach((record) => {
     if (!record.valid) return;
-    const key = REQUIRED_FIELDS.map((field) => String(record[field]).toLowerCase()).join('|');
+    const key = buildDedupeKey(record);
     if (!duplicateGroups.has(key)) duplicateGroups.set(key, []);
     duplicateGroups.get(key).push(record);
   });
