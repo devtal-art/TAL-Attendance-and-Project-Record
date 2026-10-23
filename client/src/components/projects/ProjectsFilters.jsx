@@ -55,6 +55,7 @@ export default function ProjectsFilters({
   brands,
   categories,
   departments,
+  statuses = [],
   hideBrand = false,
 }) {
   const update = (key) => (e) => onChange({ ...filters, [key]: e.target.value });
@@ -95,6 +96,7 @@ export default function ProjectsFilters({
           )}
           <FilterSelect label="Category" value={filters.category} onChange={update('category')} options={categories} allLabel="All Categories" />
           <FilterSelect label="Department" value={filters.department} onChange={update('department')} options={departments} allLabel="All Departments" />
+          <FilterSelect label="Status" value={filters.status} onChange={update('status')} options={statuses} allLabel="All Statuses" />
         </div>
       </div>
 
@@ -107,6 +109,7 @@ export default function ProjectsFilters({
           {!hideBrand && filters.brand !== 'All' && <FilterChip label={filters.brand} onRemove={clear('brand')} />}
           {filters.category !== 'All' && <FilterChip label={filters.category} onRemove={clear('category')} />}
           {filters.department !== 'All' && <FilterChip label={filters.department} onRemove={clear('department')} />}
+          {filters.status !== 'All' && <FilterChip label={filters.status} onRemove={clear('status')} />}
           <button
             type="button"
             onClick={() => onChange(DEFAULT_FILTERS)}

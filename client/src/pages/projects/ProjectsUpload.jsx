@@ -25,6 +25,7 @@ const SAMPLE_ROWS = [
     Month: 'Jan',
     'Task Name': 'Instagram post - new menu launch',
     Links: 'Screenshot: https://shortlink.gs39.co.in/r.php?c=B372Mv\nScreenshot 2: https://shortlink.gs39.co.in/r.php?c=fFUGDY',
+    Status: 'Delivered',
   },
   {
     Year: 2026,
@@ -35,6 +36,7 @@ const SAMPLE_ROWS = [
     Month: 'Jan',
     'Task Name': 'Homepage banner update',
     Links: '',
+    Status: 'In Progress',
   },
   {
     Year: 2026,
@@ -45,12 +47,13 @@ const SAMPLE_ROWS = [
     Month: 'Feb',
     'Task Name': 'Ramadan promo flyer',
     Links: 'Screenshot: https://shortlink.gs39.co.in/r.php?c=fFUGDY',
+    Status: 'Not Started',
   },
 ];
 
 const downloadSampleSheet = () => {
   const worksheet = XLSX.utils.json_to_sheet(SAMPLE_ROWS);
-  worksheet['!cols'] = [{ wch: 6 }, { wch: 20 }, { wch: 24 }, { wch: 18 }, { wch: 9 }, { wch: 8 }, { wch: 40 }, { wch: 55 }];
+  worksheet['!cols'] = [{ wch: 6 }, { wch: 20 }, { wch: 24 }, { wch: 18 }, { wch: 9 }, { wch: 8 }, { wch: 40 }, { wch: 55 }, { wch: 14 }];
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Projects');
   XLSX.writeFile(workbook, 'project_sheet_sample_format.xlsx');
@@ -166,7 +169,7 @@ export default function ProjectsUpload() {
             <div className="min-w-0">
               <h2 className="text-xl font-bold text-gray-900">Review before saving</h2>
               <p className="text-sm text-gray-500 truncate max-w-md">{file?.name}</p>
-              <p className="text-xs text-gray-400 mt-0.5">New rows are added to your existing projects — nothing already saved is deleted or changed.</p>
+              <p className="text-xs text-gray-400 mt-0.5">New rows are added to your existing projects — nothing already saved is deleted. The only change to an existing project is filling in a Status it doesn't have yet.</p>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -198,6 +201,8 @@ export default function ProjectsUpload() {
           invalidCount={previewData.invalidCount}
           duplicateCount={previewData.duplicateCount}
           existingDuplicateCount={previewData.existingDuplicateCount}
+          statusUpdateCount={previewData.statusUpdateCount}
+          unrecognizedStatusCount={previewData.unrecognizedStatusCount}
         />
 
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
@@ -243,7 +248,7 @@ export default function ProjectsUpload() {
           Required columns: Year, Brand, Category, Department, Month, Task Name
         </p>
         <p className="text-xs text-gray-400 mb-4 text-center">
-          Optional: Week No., Links (one "Label: https://..." per line) — see the sample format
+          Optional: Week No., Links (one "Label: https://..." per line), Status (Delivered, Cancelled, Hold, Review, In Progress or Not Started) — see the sample format
         </p>
         <div className="flex justify-center mb-6">
           <Button type="button" variant="outline" size="sm" onClick={downloadSampleSheet}>
@@ -313,7 +318,7 @@ export default function ProjectsUpload() {
               {isParsing ? 'Parsing...' : 'Process File'}
             </Button>
             <p className="text-xs text-gray-400 mt-3 text-center">
-              You'll be able to review the parsed data before it's saved. New rows are added to your existing projects — nothing already saved is deleted.
+              You'll be able to review the parsed data before it's saved. New rows are added to your existing projects — nothing already saved is deleted. The only change to an existing project is filling in a Status it doesn't have yet.
             </p>
           </div>
         )}

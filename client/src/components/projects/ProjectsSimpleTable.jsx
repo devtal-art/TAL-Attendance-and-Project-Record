@@ -9,7 +9,7 @@ import {
 import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Button } from '../ui/button';
 import { ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, FolderOpen } from 'lucide-react';
-import { getTagChipStyle, getDepartmentChipStyle, BRAND_CHIP_STYLE, monthIndex } from './constants';
+import { getTagChipStyle, getDepartmentChipStyle, getStatusChipStyle, BRAND_CHIP_STYLE, monthIndex } from './constants';
 import ProjectLinks from './ProjectLinks';
 
 const PAGE_SIZE = 50;
@@ -22,9 +22,9 @@ const monthYearSortingFn = (rowA, rowB) => {
   return monthIndex(a.month) - monthIndex(b.month);
 };
 
-// A plain, literal table: one row per task, five columns (Category, Project
-// Name, Brand, Department, Month/Year) - no grouping, no merged cells, no
-// drill-down.
+// A plain, literal table: one row per task (Category, Project Name, Brand,
+// Department, Week No., Month/Year, Links, Status) - no grouping, no merged
+// cells, no drill-down.
 export default function ProjectsSimpleTable({ records }) {
   const [sorting, setSorting] = useState([{ id: 'category', desc: false }]);
 
@@ -85,6 +85,22 @@ export default function ProjectsSimpleTable({ records }) {
         enableSorting: false,
         cell: ({ row }) => <ProjectLinks links={row.original.links} />,
       },
+      {
+        accessorKey: 'status',
+        header: 'Status',
+        sortingFn: 'alphanumeric',
+        // Projects saved before Status existed have none - shown as '-'
+        // like an empty Week No., not as an invented default status.
+        cell: (info) => {
+          const value = info.getValue();
+          if (!value) return <span className="text-sm text-gray-400">-</span>;
+          return (
+            <span className="inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium" style={getStatusChipStyle(value)}>
+              {value}
+            </span>
+          );
+        },
+      },
     ],
     [],
   );
@@ -109,13 +125,14 @@ export default function ProjectsSimpleTable({ records }) {
       <div className="min-h-[920px] overflow-auto rounded-lg border border-gray-200">
         <table className="w-full min-w-[640px] caption-bottom text-sm">
           <colgroup>
-            <col style={{ width: '13%' }} />
-            <col style={{ width: '27%' }} />
-            <col style={{ width: '13%' }} />
-            <col style={{ width: '13%' }} />
-            <col style={{ width: '9%' }} />
             <col style={{ width: '12%' }} />
+            <col style={{ width: '24%' }} />
+            <col style={{ width: '12%' }} />
+            <col style={{ width: '12%' }} />
+            <col style={{ width: '8%' }} />
+            <col style={{ width: '11%' }} />
             <col style={{ width: '7%' }} />
+            <col style={{ width: '14%' }} />
           </colgroup>
           <TableHeader className="sticky top-0 z-20 bg-gray-50 shadow-sm">
             <TableRow>
@@ -156,7 +173,7 @@ export default function ProjectsSimpleTable({ records }) {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={7} className="h-48 text-center">
+                <TableCell colSpan={8}className="h-48 text-center">
                   <div className="flex flex-col items-center justify-center gap-2 text-gray-400">
                     <FolderOpen className="w-8 h-8" />
                     <span className="text-sm">No projects match the current filters.</span>

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { PROJECT_STATUSES } = require('../utils/projectStatuses');
 
 const projectSchema = new mongoose.Schema({
   year: {
@@ -40,6 +41,14 @@ const projectSchema = new mongoose.Schema({
       url: { type: String, required: true },
     },
   ],
+  // Optional like weekNo/links: records saved before this field existed have
+  // no status and are left untouched - the frontend reads a missing status
+  // the same as ''. Only the six values in projectStatuses.js are allowed.
+  status: {
+    type: String,
+    enum: [...PROJECT_STATUSES, ''],
+    default: '',
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Project', projectSchema, 'project_tasks');

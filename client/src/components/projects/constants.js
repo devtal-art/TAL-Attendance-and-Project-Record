@@ -128,6 +128,32 @@ export const getDepartmentColor = (department) => {
   return getTagColor(department);
 };
 
+// The only six Status values a project can have (mirrors the server's
+// utils/projectStatuses.js - the upload parser rejects anything else), in the
+// order they're listed in the filter and chart. Each has a fixed color,
+// chosen to carry its meaning: green done, red cancelled, amber waiting,
+// violet under review, blue underway, gray not begun.
+export const STATUSES = ['Delivered', 'Cancelled', 'Hold', 'Review', 'In Progress', 'Not Started'];
+
+export const NO_STATUS_LABEL = 'No Status';
+
+const STATUS_COLORS = {
+  Delivered: '#0ca30c',
+  Cancelled: '#d03b3b',
+  Hold: '#eda100',
+  Review: '#4a3aa7',
+  'In Progress': '#2a78d6',
+  'Not Started': '#898781',
+  [NO_STATUS_LABEL]: '#c3c2b7',
+};
+
+export const getStatusColor = (status) => STATUS_COLORS[status] || UNKNOWN_TAG_COLOR;
+
+export const getStatusChipStyle = (status) => {
+  const color = getStatusColor(status);
+  return { backgroundColor: `${color}1f`, color };
+};
+
 // Light tinted background + solid text, both derived from the same color, so
 // department chips read as a coherent color-coded set instead of flat gray.
 export const getDepartmentChipStyle = (department) => {

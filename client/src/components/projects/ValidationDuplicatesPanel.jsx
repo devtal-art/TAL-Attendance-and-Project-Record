@@ -74,12 +74,20 @@ function DuplicateTable({ rows, tone }) {
 // are additive instead of replacing the whole dataset) - both are excluded
 // from being (re-)added on save except the first kind, which - like today -
 // is flagged for review but still saved.
-export default function ValidationDuplicatesPanel({ records, invalidCount, duplicateCount, existingDuplicateCount = 0 }) {
+export default function ValidationDuplicatesPanel({
+  records,
+  invalidCount,
+  duplicateCount,
+  existingDuplicateCount = 0,
+  statusUpdateCount = 0,
+  unrecognizedStatusCount = 0,
+}) {
   const invalidRows = useMemo(() => records.filter((r) => !r.valid), [records]);
   const duplicateRows = useMemo(() => records.filter((r) => r.isDuplicate), [records]);
   const existingDuplicateRows = useMemo(() => records.filter((r) => r.existsInDatabase), [records]);
+  const unrecognizedStatusRows = useMemo(() => records.filter((r) => r.valid && r.unrecognizedStatus), [records]);
 
-  if (invalidCount === 0 && duplicateCount === 0 && existingDuplicateCount === 0) return null;
+  if (invalidCount === 0 && duplicateCount === 0 && existingDuplicateCount === 0 && unrecognizedStatusCount === 0) return null;
 
   return (
     <div className="space-y-3">
@@ -120,10 +128,40 @@ export default function ValidationDuplicatesPanel({ records, invalidCount, dupli
 
       {existingDuplicateCount > 0 && (
         <Section
-          title={`${existingDuplicateCount} row(s) already exist in the database — these will be skipped on save, nothing else is affected`}
+          title={`${existingDuplicateCount} row(s) already exist in the database — these will be skipped on save${
+            statusUpdateCount > 0
+              ? `, except ${statusUpdateCount} whose missing Status will be filled in from this file (a Status already saved is never changed)`
+              : ', nothing else is affected'
+          }`}
           tone="existing"
         >
           <DuplicateTable rows={existingDuplicateRows} tone="existing" />
+        </Section>
+      )}
+
+      {unrecognizedStatusCount > 0 && (
+        <Section
+          title={`${unrecognizedStatusCount} row(s) have a Status that isn't one of Delivered, Cancelled, Hold, Review, In Progress, Not Started — they'll be saved without a Status`}
+          tone="warning"
+        >
+          <table className="w-full min-w-[420px] text-xs">
+            <thead>
+              <tr className="text-left text-amber-700">
+                <th className="py-1 pr-3 font-medium">Row</th>
+                <th className="py-1 pr-3 font-medium">Project Name</th>
+                <th className="py-1 font-medium">Status in file</th>
+              </tr>
+            </thead>
+            <tbody>
+              {unrecognizedStatusRows.map((r) => (
+                <tr key={r.rowNumber} className="border-t border-amber-100">
+                  <td className="py-1 pr-3">{r.rowNumber}</td>
+                  <td className="py-1 pr-3">{r.taskName}</td>
+                  <td className="py-1">{r.unrecognizedStatus}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </Section>
       )}
     </div>

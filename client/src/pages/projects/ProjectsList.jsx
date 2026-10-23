@@ -57,9 +57,10 @@ export default function ProjectsList() {
       Month: r.month,
       'Task Name': r.taskName,
       Links: formatLinksForExport(r.links),
+      Status: r.status || '',
     }));
     const worksheet = XLSX.utils.json_to_sheet(rows);
-    worksheet['!cols'] = [{ wch: 6 }, { wch: 24 }, { wch: 22 }, { wch: 16 }, { wch: 9 }, { wch: 8 }, { wch: 40 }, { wch: 55 }];
+    worksheet['!cols'] = [{ wch: 6 }, { wch: 24 }, { wch: 22 }, { wch: 16 }, { wch: 9 }, { wch: 8 }, { wch: 40 }, { wch: 55 }, { wch: 14 }];
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Projects');
     XLSX.writeFile(workbook, `projects_export_${Date.now()}.xlsx`);

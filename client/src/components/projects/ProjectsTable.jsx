@@ -16,7 +16,7 @@ import {
 } from '../ui/table';
 import { Button } from '../ui/button';
 import { ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, FolderOpen, AlertTriangle, Copy } from 'lucide-react';
-import { getDepartmentChipStyle, monthIndex } from './constants';
+import { getDepartmentChipStyle, getStatusChipStyle, monthIndex } from './constants';
 
 const PAGE_SIZE = 50;
 
@@ -49,6 +49,20 @@ export default function ProjectsTable({ records, getRowFlags }) {
       },
       { accessorKey: 'month', header: 'Month', sortingFn: monthSortingFn },
       { accessorKey: 'taskName', header: 'Project Name', sortingFn: 'alphanumeric' },
+      {
+        accessorKey: 'status',
+        header: 'Status',
+        sortingFn: 'alphanumeric',
+        cell: (info) => {
+          const value = info.getValue();
+          if (!value) return <span className="text-gray-400">—</span>;
+          return (
+            <span className="inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium" style={getStatusChipStyle(value)}>
+              {value}
+            </span>
+          );
+        },
+      },
     ];
 
     if (!getRowFlags) return base;

@@ -1,4 +1,5 @@
 const xlsx = require('xlsx');
+const { normalizeStatus } = require('../utils/projectStatuses');
 
 // Canonical field -> the header spellings (case/whitespace-insensitive) that
 // resolve to it. "category" also accepts "project name" because the sheets
@@ -22,6 +23,7 @@ const REQUIRED_FIELDS = Object.keys(HEADER_ALIASES);
 const OPTIONAL_HEADER_ALIASES = {
   weekNo: ['week no', 'week no.', 'week number', 'week'],
   links: ['links', 'link'],
+  status: ['status'],
 };
 const CANONICAL_LABELS = {
   year: 'Year',
@@ -149,6 +151,15 @@ exports.parseProjectsExcel = (filePath) => {
       weekNo: 'weekNo' in optionalFieldToColumnIndex ? normalizeValue(row[optionalFieldToColumnIndex.weekNo]) : '',
       links: 'links' in optionalFieldToColumnIndex ? parseLinks(row[optionalFieldToColumnIndex.links]) : [],
     };
+
+    // Status must be one of the six allowed values (see projectStatuses.js).
+    // A blank cell is simply "no status"; a non-blank value that isn't one of
+    // the six is kept out of the saved record (status stays '') and surfaced
+    // via unrecognizedStatus so the preview can flag it. Never affects row
+    // validity or the duplicate key.
+    const rawStatus = 'status' in optionalFieldToColumnIndex ? normalizeValue(row[optionalFieldToColumnIndex.status]) : '';
+    record.status = normalizeStatus(rawStatus);
+    record.unrecognizedStatus = rawStatus && !record.status ? rawStatus : '';
 
     const yearNum = parseInt(record.year, 10);
     record.year = Number.isNaN(yearNum) ? record.year : yearNum;

@@ -1,4 +1,4 @@
-import { monthIndex } from './constants';
+import { monthIndex, STATUSES } from './constants';
 
 // Inverse of the server parser's Links-cell format (one "Label: https://..."
 // pair per line) - used by the Export button so a re-uploaded export round
@@ -37,6 +37,7 @@ export const DEFAULT_FILTERS = {
   brand: 'All',
   category: 'All',
   department: 'All',
+  status: 'All',
 };
 
 // Single source of truth for "does this record match this filter value" -
@@ -53,6 +54,7 @@ export const filterRecords = (records, filters) => {
     if (!matches(r.brand, filters.brand)) return false;
     if (!matches(r.category, filters.category)) return false;
     if (!matches(r.department, filters.department)) return false;
+    if (!matches(r.status ?? '', filters.status)) return false;
     if (search) {
       const haystack = `${r.taskName ?? ''} ${r.brand ?? ''} ${r.category ?? ''} ${r.department ?? ''}`.toLowerCase();
       if (!haystack.includes(search)) return false;
@@ -94,6 +96,10 @@ export const getCascadingFilterOptions = (records, filters) => {
     brands: getUniqueSorted(byMonth, 'brand'),
     categories: getUniqueSorted(byBrand, 'category'),
     departments: getUniqueSorted(byChain, 'department'),
+    // Status is a fixed list of six, not derived from the data, and a plain
+    // flat filter: it doesn't narrow the other dropdowns or get narrowed by
+    // them, so sanitizeFilters has nothing to repair for it.
+    statuses: STATUSES,
   };
 };
 

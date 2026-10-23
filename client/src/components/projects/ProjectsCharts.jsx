@@ -14,7 +14,7 @@ import {
   LabelList,
 } from 'recharts';
 import { getUniqueSorted } from './dataUtils';
-import { getTagColor, getDepartmentColor, getDistinctColorMap } from './constants';
+import { getTagColor, getDepartmentColor, getStatusColor, getDistinctColorMap, STATUSES, NO_STATUS_LABEL } from './constants';
 
 const GRIDLINE = '#e1e0d9';
 const AXIS_TEXT = '#898781';
@@ -151,12 +151,22 @@ export default function ProjectsCharts({ records }) {
     return groupTopN(counts, MAX_SLICES);
   }, [records]);
 
+  // The six fixed statuses in their fixed order, then "No Status" for
+  // projects saved before Status existed (or uploaded without one) so the
+  // slices always add up to the filtered project count. Empty ones are left
+  // out, like the other charts only show values actually present.
+  const byStatus = useMemo(() => {
+    const counts = buildCountsByKey(records, (r) => r.status || NO_STATUS_LABEL, [...STATUSES, NO_STATUS_LABEL]);
+    return counts.filter((d) => d.value > 0);
+  }, [records]);
+
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       <BarCard title="Projects by Month" data={byMonth} />
       <BarCard title="Projects by Year" data={byYear} />
       <PieCard title="Projects by Department" data={byDepartment} colorFn={getDepartmentColor} />
       <PieCard title="Projects by Category" data={byCategory} colorFn={getTagColor} />
+      <PieCard title="Projects by Status" data={byStatus} colorFn={getStatusColor} />
     </div>
   );
 }
