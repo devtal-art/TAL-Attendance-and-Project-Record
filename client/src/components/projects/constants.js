@@ -5,6 +5,27 @@ export const monthIndex = (month) => {
   return idx === -1 ? MONTHS.length : idx;
 };
 
+// Calendar quarters, as the filter's fixed options (values 'Q1'-'Q4').
+export const QUARTERS = ['Q1', 'Q2', 'Q3', 'Q4'];
+
+const QUARTER_LABELS = {
+  Q1: 'Quarter-1 (Jan-Feb-Mar)',
+  Q2: 'Quarter-2 (Apr-May-Jun)',
+  Q3: 'Quarter-3 (Jul-Aug-Sep)',
+  Q4: 'Quarter-4 (Oct-Nov-Dec)',
+};
+
+export const getQuarterLabel = (quarter) => QUARTER_LABELS[quarter] || quarter;
+
+// Quarter a month belongs to, resolved through monthIndex so it recognizes
+// exactly the same month spellings as month sorting does. A month that
+// isn't one of the twelve gets '' - it belongs to no quarter, so it only
+// shows under "All Quarters".
+export const getQuarter = (month) => {
+  const idx = monthIndex(month);
+  return idx === MONTHS.length ? '' : QUARTERS[Math.floor(idx / 3)];
+};
+
 const MONTH_FULL_NAMES = {
   Jan: 'January',
   Feb: 'February',

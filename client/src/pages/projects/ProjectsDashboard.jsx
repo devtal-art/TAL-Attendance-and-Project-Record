@@ -6,16 +6,30 @@ import { Button } from '../../components/ui/button';
 import ProjectsSummaryCards from '../../components/projects/ProjectsSummaryCards';
 import ProjectsCharts from '../../components/projects/ProjectsCharts';
 import ProjectsFilters from '../../components/projects/ProjectsFilters';
-import { DEFAULT_FILTERS, filterRecords, getCascadingFilterOptions, sanitizeFilters } from '../../components/projects/dataUtils';
+import { DEFAULT_FILTERS, filterRecords, getCascadingFilterOptions, sanitizeFilters, validateProjectFilters } from '../../components/projects/dataUtils';
+import useUrlFilters from '../../lib/useUrlFilters';
 
 export default function ProjectsDashboard() {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  // Filters live in the URL too, so a copied link reopens filtered.
+  const [filters, setFilters] = useUrlFilters(DEFAULT_FILTERS, { validate: validateProjectFilters });
 
   useEffect(() => {
     fetchProjects();
   }, []);
+
+  // Filters read from a shared link are checked against the real data once
+  // it has loaded: a year/month/brand/category/department that doesn't exist
+  // here (or no longer does) resets to "All" instead of leaving the page
+  // showing an empty result under a dropdown that can't display the value.
+  // Held back until then since, before the load, every option looks invalid.
+  useEffect(() => {
+    if (loading || projects.length === 0) return;
+    const fixed = sanitizeFilters(projects, filters);
+    if (fixed !== filters) setFilters(fixed);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, projects]);
 
   const fetchProjects = async () => {
     setLoading(true);

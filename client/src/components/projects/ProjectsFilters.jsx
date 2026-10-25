@@ -2,7 +2,7 @@ import React from 'react';
 import { Search, X, ChevronDown } from 'lucide-react';
 import { Input } from '../ui/input';
 import { DEFAULT_FILTERS } from './dataUtils';
-import { getFullMonthName } from './constants';
+import { getFullMonthName, getQuarterLabel } from './constants';
 
 const SELECT_CLASS =
   'w-full border border-gray-300 rounded-md py-2 pl-3 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-white appearance-none cursor-pointer';
@@ -14,9 +14,12 @@ const SELECT_CLASS =
 // full-width on its own row, "All Years"/"All Months"/etc alone in a select
 // isn't enough to tell the fields apart at a glance, so a small caption is
 // added there. Desktop keeps the original unlabeled inline row untouched.
-function FilterSelect({ label, value, onChange, options, allLabel, getOptionLabel = (o) => o }) {
+// At lg+ each select grows to share its row but never shrinks below
+// minWidthClass, so the row wraps onto a second line instead of squeezing
+// every dropdown until its text is clipped ("All Mont", "All Branc").
+function FilterSelect({ label, value, onChange, options, allLabel, getOptionLabel = (o) => o, minWidthClass = 'lg:min-w-[10rem]' }) {
   return (
-    <div className="w-full">
+    <div className={`w-full lg:w-auto lg:flex-1 ${minWidthClass}`}>
       <label className="block lg:hidden text-xs font-medium text-gray-500 mb-1">{label}</label>
       <div className="relative w-full">
         <select className={SELECT_CLASS} value={value} onChange={onChange}>
@@ -51,6 +54,7 @@ export default function ProjectsFilters({
   filters,
   onChange,
   years,
+  quarters = [],
   months,
   brands,
   categories,
@@ -64,8 +68,8 @@ export default function ProjectsFilters({
 
   return (
     <div>
-      <div className="flex flex-col lg:flex-row lg:items-center gap-3">
-        <div className="w-full lg:w-64">
+      <div className="flex flex-col lg:flex-row lg:flex-wrap lg:items-center gap-3">
+        <div className="w-full lg:w-64 lg:shrink-0">
           <label className="block lg:hidden text-xs font-medium text-gray-500 mb-1">Search</label>
           <div className="relative w-full">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
@@ -88,8 +92,12 @@ export default function ProjectsFilters({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-1 gap-3 lg:gap-3">
+        {/* lg:contents lets the selects wrap alongside the search box in the
+            row above rather than inside a nested flex box of their own. */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:contents gap-3">
           <FilterSelect label="Year" value={filters.year} onChange={update('year')} options={years} allLabel="All Years" />
+          {/* Wider minimum so the longest option, "Quarter-1 (Jan-Feb-Mar)", isn't clipped. */}
+          <FilterSelect label="Quarter" value={filters.quarter} onChange={update('quarter')} options={quarters} allLabel="All Quarters" getOptionLabel={getQuarterLabel} minWidthClass="lg:min-w-[14rem]" />
           <FilterSelect label="Month" value={filters.month} onChange={update('month')} options={months} allLabel="All Months" getOptionLabel={getFullMonthName} />
           {!hideBrand && (
             <FilterSelect label="Brand" value={filters.brand} onChange={update('brand')} options={brands} allLabel="All Brands" />
@@ -105,6 +113,7 @@ export default function ProjectsFilters({
           <span className="text-xs font-medium text-gray-500 mr-0.5">Active filters:</span>
           {filters.search && <FilterChip label={`"${filters.search}"`} onRemove={clear('search')} />}
           {filters.year !== 'All' && <FilterChip label={filters.year} onRemove={clear('year')} />}
+          {filters.quarter !== 'All' && <FilterChip label={getQuarterLabel(filters.quarter)} onRemove={clear('quarter')} />}
           {filters.month !== 'All' && <FilterChip label={getFullMonthName(filters.month)} onRemove={clear('month')} />}
           {!hideBrand && filters.brand !== 'All' && <FilterChip label={filters.brand} onRemove={clear('brand')} />}
           {filters.category !== 'All' && <FilterChip label={filters.category} onRemove={clear('category')} />}

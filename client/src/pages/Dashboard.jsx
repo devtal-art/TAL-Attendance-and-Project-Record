@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
+import useUrlFilters from '../lib/useUrlFilters';
 import { getReports, getRangeSummary } from '../services/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import AttendanceFilters from '../components/attendance/AttendanceFilters';
 import {
   buildPeriods,
   toDateInputValue,
-  DEFAULT_FACET_FILTERS,
+  ATTENDANCE_URL_DEFAULTS,
+  validateDashboardUrlState,
   getUniqueSorted,
   filterEmployees,
   sanitizeFacetFilters,
@@ -27,12 +29,29 @@ import {
 } from 'recharts';
 
 export default function Dashboard() {
-  const [searchParams] = useSearchParams();
+  const location = useLocation();
+  // Upload History's "View" button opens the dashboard as /?month=..&year=..
+  // to jump to that period. Captured once at mount: useUrlFilters strips
+  // those two params from the URL as soon as it first rewrites it.
+  const [requestedPeriod] = useState(() => {
+    const params = new URLSearchParams(location.search);
+    return { month: params.get('month'), year: params.get('year') };
+  });
   const [reports, setReports] = useState([]);
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
+  // The date range and the Department/Search filters live in the URL too, so
+  // a copied link reopens with the same range and filters.
+  const [urlState, setUrlState] = useUrlFilters(ATTENDANCE_URL_DEFAULTS, {
+    validate: validateDashboardUrlState,
+    dropKeys: ['month', 'year'],
+  });
+  const { from, to } = urlState;
+  const facetFilters = useMemo(
+    () => ({ search: urlState.search, department: urlState.department }),
+    [urlState.search, urlState.department],
+  );
+  const setFrom = (value) => setUrlState((prev) => ({ ...prev, from: value }));
+  const setTo = (value) => setUrlState((prev) => ({ ...prev, to: value }));
   const [rangeData, setRangeData] = useState(null);
-  const [facetFilters, setFacetFilters] = useState(DEFAULT_FACET_FILTERS);
   const [loading, setLoading] = useState(true);
   const [rangeError, setRangeError] = useState('');
 
@@ -48,26 +67,43 @@ export default function Dashboard() {
       setReports(data);
       if (data.length === 0) {
         setLoading(false);
-        return;
       }
-
-      const allPeriods = buildPeriods(data);
-      const requestedMonth = searchParams.get('month');
-      const requestedYear = searchParams.get('year');
-      const requested = allPeriods.find(p => p.month === requestedMonth && p.year === requestedYear);
-      const initial = requested || allPeriods[0];
-      setFrom(toDateInputValue(initial.startDate));
-      setTo(toDateInputValue(initial.endDate));
     } catch (error) {
       console.error('Failed to fetch reports', error);
       setLoading(false);
     }
   };
 
+  // With no date range in the URL (a fresh visit, or a link whose range was
+  // missing/invalid - see validateDashboardUrlState), fall back to the
+  // period History asked for, else the latest one. A range that IS in the
+  // URL is used as-is and never overridden.
+  useEffect(() => {
+    if (reports.length === 0 || from || to) return;
+    const allPeriods = buildPeriods(reports);
+    const requested = allPeriods.find((p) => p.month === requestedPeriod.month && p.year === requestedPeriod.year);
+    const initial = requested || allPeriods[0];
+    setUrlState((prev) => ({
+      ...prev,
+      from: toDateInputValue(initial.startDate),
+      to: toDateInputValue(initial.endDate),
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reports, from, to]);
+
   useEffect(() => {
     if (!from || !to) return;
     fetchRange(from, to);
   }, [from, to]);
+
+  // Once a range's data is in, a Department from a shared link (or one from
+  // the previous range) that nobody in this range belongs to resets to "All".
+  useEffect(() => {
+    if (!rangeData) return;
+    const fixed = sanitizeFacetFilters(rangeData.employees, facetFilters);
+    if (fixed !== facetFilters) setUrlState((prev) => ({ ...prev, department: fixed.department }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rangeData]);
 
   const fetchRange = async (rangeFrom, rangeTo) => {
     setLoading(true);
@@ -75,7 +111,6 @@ export default function Dashboard() {
     try {
       const data = await getRangeSummary(rangeFrom, rangeTo);
       setRangeData(data);
-      setFacetFilters((prev) => sanitizeFacetFilters(data.employees, prev));
     } catch (error) {
       setRangeData(null);
       setRangeError(error.response?.data?.message || 'Failed to fetch attendance data for this date range.');
@@ -197,7 +232,7 @@ export default function Dashboard() {
           periods={periods}
           onSelectPeriod={handleSelectPeriod}
           facetFilters={facetFilters}
-          onFacetChange={(next) => setFacetFilters(sanitizeFacetFilters(rangeData?.employees || [], next))}
+          onFacetChange={(next) => setUrlState((prev) => ({ ...prev, ...sanitizeFacetFilters(rangeData?.employees || [], next) }))}
           departments={departmentOptions}
         />
       </div>

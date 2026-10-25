@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { getReports, getEmployees, getRangeSummary, exportEmployeeMonth, exportEmployeeAll } from '../services/api';
 import { useNavigate } from 'react-router-dom';
+import useUrlFilters from '../lib/useUrlFilters';
 import AttendanceFilters from '../components/attendance/AttendanceFilters';
 import {
   buildPeriods,
   toDateInputValue,
-  DEFAULT_FACET_FILTERS,
+  ATTENDANCE_URL_DEFAULTS,
+  validateEmployeesUrlState,
   getUniqueSorted,
   filterEmployees,
   sanitizeFacetFilters,
@@ -74,12 +76,19 @@ export default function Employees() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
+  // The date range and the Department/Search filters live in the URL, so a
+  // copied link reopens with the same filters - and coming back from an
+  // employee's details page (navigate(-1)) restores them too.
+  const [urlState, setUrlState] = useUrlFilters(ATTENDANCE_URL_DEFAULTS, { validate: validateEmployeesUrlState });
+  const { from, to } = urlState;
+  const facetFilters = useMemo(
+    () => ({ search: urlState.search, department: urlState.department }),
+    [urlState.search, urlState.department],
+  );
+  const setFrom = (value) => setUrlState((prev) => ({ ...prev, from: value }));
+  const setTo = (value) => setUrlState((prev) => ({ ...prev, to: value }));
   const [rangeData, setRangeData] = useState(null);
   const [rangeError, setRangeError] = useState('');
-
-  const [facetFilters, setFacetFilters] = useState(DEFAULT_FACET_FILTERS);
   const navigate = useNavigate();
 
   const periods = useMemo(() => buildPeriods(reports), [reports]);
@@ -131,8 +140,7 @@ export default function Employees() {
   };
 
   const handleClearDateRange = () => {
-    setFrom('');
-    setTo('');
+    setUrlState((prev) => ({ ...prev, from: '', to: '' }));
   };
 
   const baseRows = useMemo(() => {
@@ -141,6 +149,17 @@ export default function Employees() {
   }, [isDateFilterActive, rangeData, allEmployees]);
 
   const departmentOptions = useMemo(() => getUniqueSorted(baseRows, 'department'), [baseRows]);
+
+  // A Department from a shared link that doesn't exist in the data being
+  // shown resets to "All". Held back until that data has actually loaded
+  // (the employees, plus the date range's own data when one is set) -
+  // before that, baseRows is empty and every department would look invalid.
+  useEffect(() => {
+    if (loading || (isDateFilterActive && !rangeData)) return;
+    const fixed = sanitizeFacetFilters(baseRows, facetFilters);
+    if (fixed !== facetFilters) setUrlState((prev) => ({ ...prev, department: fixed.department }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, rangeData, allEmployees]);
 
   const employees = useMemo(() => filterEmployees(baseRows, facetFilters), [baseRows, facetFilters]);
 
@@ -216,7 +235,7 @@ export default function Employees() {
           periods={periods}
           onSelectPeriod={handleSelectPeriod}
           facetFilters={facetFilters}
-          onFacetChange={(next) => setFacetFilters(sanitizeFacetFilters(baseRows, next))}
+          onFacetChange={(next) => setUrlState((prev) => ({ ...prev, ...sanitizeFacetFilters(baseRows, next) }))}
           departments={departmentOptions}
         />
         {!isDateFilterActive && (

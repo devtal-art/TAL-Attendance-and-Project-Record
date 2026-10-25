@@ -7,17 +7,45 @@ import ProjectsFilters from '../../components/projects/ProjectsFilters';
 import ProjectsSimpleTable from '../../components/projects/ProjectsSimpleTable';
 import HierarchyTree from '../../components/projects/HierarchyTree';
 import { getProjects } from '../../services/projectsApi';
-import { DEFAULT_FILTERS, filterRecords, getCascadingFilterOptions, sanitizeFilters, formatLinksForExport } from '../../components/projects/dataUtils';
+import { DEFAULT_FILTERS, filterRecords, getCascadingFilterOptions, sanitizeFilters, formatLinksForExport, validateProjectFilters } from '../../components/projects/dataUtils';
+import useUrlFilters from '../../lib/useUrlFilters';
+
+// The filters plus which view is open ('table' | 'hierarchy') all live in
+// the URL, so a copied link reopens exactly what's on screen.
+const URL_DEFAULTS = { ...DEFAULT_FILTERS, view: 'table' };
+const validateUrlState = (state) => ({
+  ...validateProjectFilters(state),
+  view: state.view === 'hierarchy' ? 'hierarchy' : 'table',
+});
 
 export default function ProjectsList() {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState(DEFAULT_FILTERS);
-  const [viewMode, setViewMode] = useState('table'); // 'table' | 'hierarchy'
+  const [urlState, setUrlState] = useUrlFilters(URL_DEFAULTS, { validate: validateUrlState });
+  const viewMode = urlState.view;
+  const filters = useMemo(() => {
+    const rest = { ...urlState };
+    delete rest.view;
+    return rest;
+  }, [urlState]);
+  const setFilters = (next) => setUrlState((prev) => ({ ...next, view: prev.view }));
+  const setViewMode = (view) => setUrlState((prev) => ({ ...prev, view }));
 
   useEffect(() => {
     fetchProjects();
   }, []);
+
+  // Filters read from a shared link are checked against the real data once
+  // it has loaded: a year/month/brand/category/department that doesn't exist
+  // here (or no longer does) resets to "All" instead of leaving the page
+  // showing an empty result under a dropdown that can't display the value.
+  // Held back until then since, before the load, every option looks invalid.
+  useEffect(() => {
+    if (loading || projects.length === 0) return;
+    const fixed = sanitizeFilters(projects, filters);
+    if (fixed !== filters) setFilters(fixed);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, projects]);
 
   const fetchProjects = async () => {
     setLoading(true);

@@ -1,4 +1,4 @@
-import { monthIndex, STATUSES } from './constants';
+import { monthIndex, STATUSES, QUARTERS, getQuarter } from './constants';
 
 // Inverse of the server parser's Links-cell format (one "Label: https://..."
 // pair per line) - used by the Export button so a re-uploaded export round
@@ -33,12 +33,25 @@ export const computeSummaryCounts = (records) => ({
 export const DEFAULT_FILTERS = {
   search: '',
   year: 'All',
+  quarter: 'All',
   month: 'All',
   brand: 'All',
   category: 'All',
   department: 'All',
   status: 'All',
 };
+
+// Repairs the filters read from a shared/hand-edited URL (see
+// lib/useUrlFilters.js). Quarter and Status are fixed lists, so an
+// unrecognized value is reset to "All" here; the data-dependent filters
+// (year/month/brand/category/department) are repaired by sanitizeFilters
+// below once the project data has loaded. Any extra keys on the object
+// (e.g. the Projects list's `view`) pass through untouched.
+export const validateProjectFilters = (filters) => ({
+  ...filters,
+  quarter: filters.quarter === 'All' || QUARTERS.includes(filters.quarter) ? filters.quarter : 'All',
+  status: filters.status === 'All' || STATUSES.includes(filters.status) ? filters.status : 'All',
+});
 
 // Single source of truth for "does this record match this filter value" -
 // used by both the flat filterRecords below and the cascading filter option
@@ -50,6 +63,7 @@ export const filterRecords = (records, filters) => {
   const search = (filters.search || '').trim().toLowerCase();
   return records.filter((r) => {
     if (!matches(r.year, filters.year)) return false;
+    if (!matches(getQuarter(r.month), filters.quarter)) return false;
     if (!matches(r.month, filters.month)) return false;
     if (!matches(r.brand, filters.brand)) return false;
     if (!matches(r.category, filters.category)) return false;
@@ -77,13 +91,20 @@ const OPTION_KEY_FOR_FIELD = { year: 'years', month: 'months', brand: 'brands', 
 // itself. Department sits outside the chain but narrows, and is narrowed
 // by, the full chain, since it's a cross-cutting facet rather than a level.
 export const getCascadingFilterOptions = (records, filters) => {
-  const byDepartment = records.filter((r) => matches(r.department, filters.department));
+  // Quarter, like Department, sits outside the Year -> Month -> Brand ->
+  // Category chain but narrows every option below it, so e.g. Month only
+  // offers the months of the selected quarter and Year only offers years
+  // that actually have records in it.
+  const byDepartment = records.filter(
+    (r) => matches(r.department, filters.department) && matches(getQuarter(r.month), filters.quarter),
+  );
   const byYear = byDepartment.filter((r) => matches(r.year, filters.year));
   const byMonth = byYear.filter((r) => matches(r.month, filters.month));
   const byBrand = byMonth.filter((r) => matches(r.brand, filters.brand));
 
   const byChain = records.filter(
     (r) =>
+      matches(getQuarter(r.month), filters.quarter) &&
       matches(r.year, filters.year) &&
       matches(r.month, filters.month) &&
       matches(r.brand, filters.brand) &&
@@ -100,6 +121,8 @@ export const getCascadingFilterOptions = (records, filters) => {
     // flat filter: it doesn't narrow the other dropdowns or get narrowed by
     // them, so sanitizeFilters has nothing to repair for it.
     statuses: STATUSES,
+    // Fixed four, always valid, so sanitizeFilters never has to repair it.
+    quarters: QUARTERS,
   };
 };
 

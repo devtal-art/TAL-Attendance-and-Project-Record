@@ -50,6 +50,45 @@ export const DEFAULT_FACET_FILTERS = {
   department: 'All',
 };
 
+// Everything the Dashboard and Employees pages keep in the URL so a copied
+// link reopens with the same filters (see lib/useUrlFilters.js): the date
+// range plus the two facet filters above. '' = no date set.
+export const ATTENDANCE_URL_DEFAULTS = {
+  from: '',
+  to: '',
+  ...DEFAULT_FACET_FILTERS,
+};
+
+// A real calendar date in the exact 'YYYY-MM-DD' form a native date input
+// uses - rejects '2026-13-45', '2026-2-3', free text, etc. from a hand-edited
+// link rather than passing them to the server.
+const isValidDateParam = (value) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(value);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+};
+
+const validateDates = (state) => {
+  const from = isValidDateParam(state.from) ? state.from : '';
+  const to = isValidDateParam(state.to) ? state.to : '';
+  return { ...state, from, to };
+};
+
+// Employees: both dates are optional, and one without the other is allowed
+// (the page just stays in its consolidated view until both are set), so only
+// malformed dates are dropped.
+export const validateEmployeesUrlState = validateDates;
+
+// Dashboard: always scoped to a full From/To range, so a link carrying only
+// one date, or a range that runs backwards, is treated as no range at all -
+// the page then falls back to its default period instead of getting stuck on
+// a half-set range it would never load.
+export const validateDashboardUrlState = (state) => {
+  const dated = validateDates(state);
+  if (!dated.from || !dated.to || dated.from > dated.to) return { ...dated, from: '', to: '' };
+  return dated;
+};
+
 const matches = (value, filterValue) =>
   filterValue === 'All' || filterValue == null || String(value) === String(filterValue);
 
