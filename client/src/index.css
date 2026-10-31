@@ -95,4 +95,26 @@
   .animate-hierarchy-fade-in {
     animation: hierarchy-fade-in 140ms ease-out;
   }
+
+  @keyframes trail-pop {
+    from {
+      opacity: 0;
+      transform: scale(0.6);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .animate-trail-pop {
+    animation: trail-pop 160ms ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-hierarchy-fade-in,
+    .animate-trail-pop {
+      animation: none;
+    }
+  }
 }

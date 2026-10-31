@@ -12,8 +12,10 @@ import { getFullMonthName, getQuarterLabel } from './constants';
 // outside click close. onChange receives { target: { value } } like a native
 // change event, so callers are unchanged. The active value is also surfaced
 // as a removable chip (see FilterChip below).
-// A compact pill with field name and current value inline.
-// Decreased font size, padding, and height ensure all filter names fit in one row.
+// The pill is as wide as its text and never truncates the "All ..." name:
+// when a row runs out of space the pills wrap instead of shrinking. Only a
+// long *selected* value may ellipsize (full text in its tooltip), and only
+// once a single pill is wider than the whole row.
 function FilterSelect({ label, value, onChange, options, allLabel, getOptionLabel = (o) => o }) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
@@ -87,7 +89,7 @@ function FilterSelect({ label, value, onChange, options, allLabel, getOptionLabe
   };
 
   return (
-    <div className="relative min-w-0" ref={rootRef}>
+    <div className="relative flex-auto max-w-full" ref={rootRef}>
       <button
         type="button"
         role="combobox"
@@ -98,7 +100,7 @@ function FilterSelect({ label, value, onChange, options, allLabel, getOptionLabe
         data-value={items[selectedIndex].value}
         onClick={() => (open ? setOpen(false) : openList())}
         onKeyDown={onKeyDown}
-        className={`relative flex h-7.5 w-full min-w-0 items-center gap-1 rounded-full border pl-2 pr-5 text-left shadow-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${
+        className={`relative flex h-9 w-full items-center gap-1.5 rounded-full border pl-3.5 pr-9 text-left shadow-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${
           open
             ? 'border-primary ring-2 ring-primary/20 bg-white'
             : isSelected
@@ -108,18 +110,18 @@ function FilterSelect({ label, value, onChange, options, allLabel, getOptionLabe
       >
         {isSelected ? (
           <>
-            <span className="shrink-0 text-[9.5px] font-medium text-primary/70">{label}:</span>
-            <span className="min-w-0 flex-1 truncate text-[10px] font-semibold text-primary" title={current.text}>
+            <span className="shrink-0 whitespace-nowrap text-xs font-medium text-primary/70">{label}:</span>
+            <span className="min-w-0 truncate text-sm font-semibold text-primary" title={current.text}>
               {current.text}
             </span>
           </>
         ) : (
-          <span className="min-w-0 flex-1 truncate text-[10px] font-medium text-slate-700 tracking-tight" title={current.text}>
+          <span className="whitespace-nowrap text-sm font-medium text-slate-700">
             {current.text}
           </span>
         )}
         <ChevronDown
-          className={`pointer-events-none absolute right-1.5 top-1/2 h-2.5 w-2.5 -translate-y-1/2 transition-transform ${
+          className={`pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 transition-transform ${
             isSelected ? 'text-primary/70' : 'text-slate-400'
           } ${open ? 'rotate-180' : ''}`}
         />
@@ -145,12 +147,12 @@ function FilterSelect({ label, value, onChange, options, allLabel, getOptionLabe
                 onMouseDown={(e) => e.preventDefault()}
                 onMouseEnter={() => setActive(i)}
                 onClick={() => pick(i)}
-                className={`flex cursor-pointer items-center justify-between gap-4 rounded-lg px-3 py-1.5 text-xs ${
+                className={`flex cursor-pointer items-center justify-between gap-4 rounded-lg px-3 py-2 text-sm ${
                   i === active ? 'bg-slate-100' : ''
                 } ${selected ? 'font-semibold text-primary' : 'text-slate-700'}`}
               >
                 <span className="truncate">{item.text}</span>
-                {selected && <Check className="h-3.5 w-3.5 shrink-0" />}
+                {selected && <Check className="h-4 w-4 shrink-0" />}
               </li>
             );
           })}
@@ -160,20 +162,17 @@ function FilterSelect({ label, value, onChange, options, allLabel, getOptionLabe
   );
 }
 
-// A titled cluster of related filters in one tidy, compact card.
-function FilterGroup({ title, dotClass, tintClass, count, children }) {
+// A titled cluster of related filters in one card. Sized by its content
+// (flex-auto) and grows to share leftover row space; pills inside wrap
+// rather than shrink, so filter names are never cut off.
+function FilterGroup({ title, dotClass, tintClass, children }) {
   return (
-    <div className={`min-w-0 rounded-xl border px-1.5 py-1.5 ${tintClass}`}>
-      <div className="mb-1 flex items-center gap-1 text-[9.5px] font-semibold uppercase tracking-wider text-slate-500">
-        <span className={`h-1.5 w-1.5 rounded-full ${dotClass}`} aria-hidden="true" />
+    <div className={`flex-auto max-w-full rounded-xl border p-2.5 ${tintClass}`}>
+      <div className="mb-2 flex items-center gap-1.5 whitespace-nowrap text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+        <span className={`h-2 w-2 rounded-full ${dotClass}`} aria-hidden="true" />
         {title}
       </div>
-      <div
-        className="grid grid-cols-1 gap-1 sm:[grid-template-columns:repeat(var(--n),minmax(0,1fr))]"
-        style={{ '--n': count }}
-      >
-        {children}
-      </div>
+      <div className="flex flex-wrap gap-2">{children}</div>
     </div>
   );
 }
@@ -215,14 +214,6 @@ export default function ProjectsFilters({
   // dashboard has no Frequency) counts as unfiltered for it.
   const isFiltered = Object.keys(DEFAULT_FILTERS).some((key) => (filters[key] ?? DEFAULT_FILTERS[key]) !== DEFAULT_FILTERS[key]);
 
-  // Proportional fr per item type so longer labels (e.g. Department, Category, Frequency)
-  // receive slightly more width while compact labels (Year, Month) don't waste space.
-  const groupWeights = {
-    Period: 0.95,
-    Project: 1.15,
-    Work: 1.05,
-  };
-
   // Only the filters this page offers and the user hasn't hidden; a group
   // with none left is dropped, and the rest share the row.
   const groups = [
@@ -261,39 +252,32 @@ export default function ProjectsFilters({
     .filter((g) => g.items.length > 0);
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-2.5 sm:p-3">
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
       <div className="relative w-full">
         <label className="sr-only" htmlFor="projects-search">Search</label>
-        <Search className="absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+        <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
         <Input
           id="projects-search"
           placeholder="Search projects..."
           value={filters.search}
           onChange={update('search')}
-          className="h-8 rounded-full border-slate-200 bg-white pl-9 pr-8 text-xs shadow-xs"
+          className="h-10 rounded-full border-slate-200 bg-white pl-11 pr-10 text-sm shadow-xs"
         />
         {filters.search !== DEFAULT_FILTERS.search && (
           <button
             type="button"
             onClick={clear('search')}
             aria-label="Clear search"
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded"
+            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded"
           >
-            <X className="w-3 h-3" />
+            <X className="w-4 h-4" />
           </button>
         )}
       </div>
 
-      <div
-        className="mt-2 grid grid-cols-1 gap-1.5 lg:[grid-template-columns:var(--groups)]"
-        style={{
-          '--groups': groups
-            .map((g) => `minmax(0,${((groupWeights[g.title] || 1) * g.items.length).toFixed(2)}fr)`)
-            .join(' '),
-        }}
-      >
+      <div className="mt-3 flex flex-wrap gap-2.5">
         {groups.map((g) => (
-          <FilterGroup key={g.title} title={g.title} dotClass={g.dotClass} tintClass={g.tintClass} count={g.items.length}>
+          <FilterGroup key={g.title} title={g.title} dotClass={g.dotClass} tintClass={g.tintClass}>
             {g.items}
           </FilterGroup>
         ))}

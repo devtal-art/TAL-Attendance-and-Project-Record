@@ -141,11 +141,7 @@ export default function ProjectsList() {
   }
 
   return (
-    <div
-      className={`bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col ${
-        viewMode === 'hierarchy' ? 'lg:h-[calc(100vh-8rem)]' : ''
-      }`}
-    >
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col">
       <div className="p-6 pb-0 shrink-0">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
           <div>
@@ -215,14 +211,11 @@ export default function ProjectsList() {
           <ProjectsSimpleTable records={filteredProjects} hiddenColumns={prefs.hiddenColumns} columnOrder={prefs.columnOrder} />
         </div>
       ) : (
-        // Below lg the card above is auto-height (its fixed viewport-relative
-        // height is lg-only), so this box needs its own determinate height
-        // for HierarchyTree's internal h-full scroll region to size against -
-        // otherwise a tall stacked mobile filter set can squeeze this down to
-        // nothing via flex-1/min-h-0. At lg+ this is unchanged from the
-        // original flex-1/min-h-0 fill-remaining-space behavior.
-        <div className="h-[70vh] lg:h-auto lg:flex-1 lg:min-h-0 p-6 pt-4">
-          <HierarchyTree records={filteredProjects} hiddenDetails={prefs.hiddenColumns} fillHeight searchActive={searchActive} totalCount={projects.length} />
+        // Like the other views, not clamped to the viewport - the tree grows
+        // to full height and the page scrolls (pageScroll keeps its sticky
+        // brand trail and Year/Month headers working against the page).
+        <div className="p-6 pt-4">
+          <HierarchyTree records={filteredProjects} hiddenDetails={prefs.hiddenColumns} pageScroll searchActive={searchActive} totalCount={projects.length} />
         </div>
       )}
     </div>
