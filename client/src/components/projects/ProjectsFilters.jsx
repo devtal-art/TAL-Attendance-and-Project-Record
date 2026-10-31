@@ -12,6 +12,8 @@ import { getFullMonthName, getQuarterLabel } from './constants';
 // outside click close. onChange receives { target: { value } } like a native
 // change event, so callers are unchanged. The active value is also surfaced
 // as a removable chip (see FilterChip below).
+// A compact pill with field name and current value inline.
+// Decreased font size, padding, and height ensure all filter names fit in one row.
 function FilterSelect({ label, value, onChange, options, allLabel, getOptionLabel = (o) => o }) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
@@ -22,6 +24,7 @@ function FilterSelect({ label, value, onChange, options, allLabel, getOptionLabe
   const items = [{ value: 'All', text: allLabel }, ...options.map((o) => ({ value: String(o), text: getOptionLabel(o) }))];
   const selectedIndex = Math.max(0, items.findIndex((i) => i.value === String(value)));
   const current = items[selectedIndex];
+  const isSelected = value != null && String(value) !== 'All';
 
   useEffect(() => {
     if (!open) return undefined;
@@ -95,13 +98,31 @@ function FilterSelect({ label, value, onChange, options, allLabel, getOptionLabe
         data-value={items[selectedIndex].value}
         onClick={() => (open ? setOpen(false) : openList())}
         onKeyDown={onKeyDown}
-        className={`relative flex h-10 w-full min-w-0 items-center gap-2 rounded-full border bg-white pl-4 pr-9 text-left shadow-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${
-          open ? 'border-primary ring-2 ring-primary/20' : 'border-slate-200 hover:border-slate-300'
+        className={`relative flex h-7.5 w-full min-w-0 items-center gap-1 rounded-full border pl-2 pr-5 text-left shadow-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${
+          open
+            ? 'border-primary ring-2 ring-primary/20 bg-white'
+            : isSelected
+            ? 'border-primary/40 bg-primary/5 text-primary'
+            : 'border-slate-200 bg-white hover:border-slate-300'
         }`}
       >
-        <span className="shrink-0 text-xs font-medium text-slate-500">{label}</span>
-        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-800">{current.text}</span>
-        <ChevronDown className={`pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500 transition-transform ${open ? 'rotate-180' : ''}`} />
+        {isSelected ? (
+          <>
+            <span className="shrink-0 text-[9.5px] font-medium text-primary/70">{label}:</span>
+            <span className="min-w-0 flex-1 truncate text-[10px] font-semibold text-primary" title={current.text}>
+              {current.text}
+            </span>
+          </>
+        ) : (
+          <span className="min-w-0 flex-1 truncate text-[10px] font-medium text-slate-700 tracking-tight" title={current.text}>
+            {current.text}
+          </span>
+        )}
+        <ChevronDown
+          className={`pointer-events-none absolute right-1.5 top-1/2 h-2.5 w-2.5 -translate-y-1/2 transition-transform ${
+            isSelected ? 'text-primary/70' : 'text-slate-400'
+          } ${open ? 'rotate-180' : ''}`}
+        />
       </button>
 
       {open && (
@@ -110,7 +131,7 @@ function FilterSelect({ label, value, onChange, options, allLabel, getOptionLabe
           ref={listRef}
           role="listbox"
           aria-label={label}
-          className="absolute left-0 top-full z-30 mt-2 max-h-72 w-max min-w-full max-w-[22rem] overflow-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl"
+          className="absolute left-0 top-full z-30 mt-1 max-h-72 w-max min-w-full max-w-[22rem] overflow-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl"
         >
           {items.map((item, i) => {
             const selected = i === selectedIndex;
@@ -124,12 +145,12 @@ function FilterSelect({ label, value, onChange, options, allLabel, getOptionLabe
                 onMouseDown={(e) => e.preventDefault()}
                 onMouseEnter={() => setActive(i)}
                 onClick={() => pick(i)}
-                className={`flex cursor-pointer items-center justify-between gap-4 rounded-lg px-3 py-2 text-sm ${
+                className={`flex cursor-pointer items-center justify-between gap-4 rounded-lg px-3 py-1.5 text-xs ${
                   i === active ? 'bg-slate-100' : ''
                 } ${selected ? 'font-semibold text-primary' : 'text-slate-700'}`}
               >
                 <span className="truncate">{item.text}</span>
-                {selected && <Check className="h-4 w-4 shrink-0" />}
+                {selected && <Check className="h-3.5 w-3.5 shrink-0" />}
               </li>
             );
           })}
@@ -139,20 +160,16 @@ function FilterSelect({ label, value, onChange, options, allLabel, getOptionLabe
   );
 }
 
-// A titled cluster of related filters. Its pills share equal-width columns
-// (one per visible pill, side by side from sm up), and on wide screens the
-// groups' widths are proportional to their pill counts (see the grid in
-// ProjectsFilters), so every pill on the panel ends up the same width and the
-// groups line up in one tidy row.
+// A titled cluster of related filters in one tidy, compact card.
 function FilterGroup({ title, dotClass, tintClass, count, children }) {
   return (
-    <div className={`min-w-0 rounded-xl border p-3 ${tintClass}`}>
-      <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-        <span className={`h-2 w-2 rounded-full ${dotClass}`} aria-hidden="true" />
+    <div className={`min-w-0 rounded-xl border px-1.5 py-1.5 ${tintClass}`}>
+      <div className="mb-1 flex items-center gap-1 text-[9.5px] font-semibold uppercase tracking-wider text-slate-500">
+        <span className={`h-1.5 w-1.5 rounded-full ${dotClass}`} aria-hidden="true" />
         {title}
       </div>
       <div
-        className="grid grid-cols-1 gap-2 sm:[grid-template-columns:repeat(var(--n),minmax(0,1fr))]"
+        className="grid grid-cols-1 gap-1 sm:[grid-template-columns:repeat(var(--n),minmax(0,1fr))]"
         style={{ '--n': count }}
       >
         {children}
@@ -198,6 +215,14 @@ export default function ProjectsFilters({
   // dashboard has no Frequency) counts as unfiltered for it.
   const isFiltered = Object.keys(DEFAULT_FILTERS).some((key) => (filters[key] ?? DEFAULT_FILTERS[key]) !== DEFAULT_FILTERS[key]);
 
+  // Proportional fr per item type so longer labels (e.g. Department, Category, Frequency)
+  // receive slightly more width while compact labels (Year, Month) don't waste space.
+  const groupWeights = {
+    Period: 0.95,
+    Project: 1.15,
+    Work: 1.05,
+  };
+
   // Only the filters this page offers and the user hasn't hidden; a group
   // with none left is dropped, and the rest share the row.
   const groups = [
@@ -228,7 +253,7 @@ export default function ProjectsFilters({
       items: [
         shown('status') && <FilterSelect key="status" label="Status" value={filters.status} onChange={update('status')} options={statuses} allLabel="All Statuses" />,
         // Only on pages that supply frequencies (the Projects list).
-        frequencies.length > 0 && shown('frequency') && <FilterSelect key="frequency" label="Frequency" value={filters.frequency} onChange={update('frequency')} options={frequencies} allLabel="All Frequencies" />,
+        frequencies.length > 0 && filters.frequency !== undefined && shown('frequency') && <FilterSelect key="frequency" label="Frequency" value={filters.frequency} onChange={update('frequency')} options={frequencies} allLabel="All Frequencies" />,
       ],
     },
   ]
@@ -236,32 +261,36 @@ export default function ProjectsFilters({
     .filter((g) => g.items.length > 0);
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-2.5 sm:p-3">
       <div className="relative w-full">
         <label className="sr-only" htmlFor="projects-search">Search</label>
-        <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <Search className="absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
         <Input
           id="projects-search"
           placeholder="Search projects..."
           value={filters.search}
           onChange={update('search')}
-          className="h-10 rounded-full border-slate-200 bg-white pl-10 pr-9 shadow-sm"
+          className="h-8 rounded-full border-slate-200 bg-white pl-9 pr-8 text-xs shadow-xs"
         />
         {filters.search !== DEFAULT_FILTERS.search && (
           <button
             type="button"
             onClick={clear('search')}
             aria-label="Clear search"
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded"
           >
-            <X className="w-3.5 h-3.5" />
+            <X className="w-3 h-3" />
           </button>
         )}
       </div>
 
       <div
-        className="mt-5 grid grid-cols-1 gap-x-8 gap-y-5 lg:[grid-template-columns:var(--groups)]"
-        style={{ '--groups': groups.map((g) => `minmax(0,${g.items.length}fr)`).join(' ') }}
+        className="mt-2 grid grid-cols-1 gap-1.5 lg:[grid-template-columns:var(--groups)]"
+        style={{
+          '--groups': groups
+            .map((g) => `minmax(0,${((groupWeights[g.title] || 1) * g.items.length).toFixed(2)}fr)`)
+            .join(' '),
+        }}
       >
         {groups.map((g) => (
           <FilterGroup key={g.title} title={g.title} dotClass={g.dotClass} tintClass={g.tintClass} count={g.items.length}>
