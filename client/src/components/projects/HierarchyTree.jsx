@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ChevronRight, ChevronDown, ListTree } from 'lucide-react';
 import { buildHierarchy, DEFAULT_HIERARCHY_LEVELS, getUniqueSorted } from './dataUtils';
-import { getTagChipStyle, getDepartmentChipStyle, getFullMonthName } from './constants';
+import { getTagChipStyle, getDepartmentChipStyle, getFrequencyChipStyle, getFullMonthName } from './constants';
 import ProjectLinks from './ProjectLinks';
 
 // Month is stored/grouped by its short form (Jan, Feb, ...) so sorting and
@@ -51,7 +51,7 @@ const ROW_PADDING = { year: 'py-2', month: 'py-1.5', brand: 'py-1.5', category: 
 const INDENT = { year: 'pl-2 sm:pl-3', month: 'pl-5 sm:pl-7', brand: 'pl-8 sm:pl-11', category: 'pl-11 sm:pl-14' };
 const COUNT_STYLE = { year: 'text-xs font-medium text-gray-500', month: 'text-xs text-gray-400', brand: 'text-xs text-gray-400', category: 'text-xs text-gray-400' };
 
-function Node({ node, level, levelFields, path, expanded, onToggle }) {
+function Node({ node, level, levelFields, path, expanded, onToggle, hiddenDetails }) {
   const nodeKey = `${path}/${node.key}`;
   const isOpen = expanded.has(nodeKey);
   const isLastLevel = level === levelFields.length - 1;
@@ -88,7 +88,7 @@ function Node({ node, level, levelFields, path, expanded, onToggle }) {
       {isOpen && !isLastLevel && (
         <div className="animate-hierarchy-fade-in">
           {node.children.map((child) => (
-            <Node key={child.key} node={child} level={level + 1} levelFields={levelFields} path={nodeKey} expanded={expanded} onToggle={onToggle} />
+            <Node key={child.key} node={child} level={level + 1} levelFields={levelFields} path={nodeKey} expanded={expanded} onToggle={onToggle} hiddenDetails={hiddenDetails} />
           ))}
         </div>
       )}
@@ -99,9 +99,21 @@ function Node({ node, level, levelFields, path, expanded, onToggle }) {
             <li key={project._id || i} className="text-sm text-gray-700 py-1 flex items-start gap-2">
               <span className="text-gray-300 shrink-0 mt-0.5">&bull;</span>
               <span className="flex-1 min-w-0 break-words">{project.taskName}</span>
-              <span className="shrink-0 whitespace-nowrap text-xs text-gray-400 mt-0.5">Week no. {project.weekNo || '-'}</span>
-              <span className="shrink-0 mt-0.5"><ProjectLinks links={project.links} /></span>
-              {project.department && (
+              {!hiddenDetails.includes('weekNo') && (
+                <span className="shrink-0 whitespace-nowrap text-xs text-gray-400 mt-0.5">Week no. {project.weekNo || '-'}</span>
+              )}
+              {!hiddenDetails.includes('links') && (
+                <span className="shrink-0 mt-0.5"><ProjectLinks links={project.links} /></span>
+              )}
+              {project.frequency && !hiddenDetails.includes('frequency') && (
+                <span
+                  className="shrink-0 whitespace-nowrap inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium"
+                  style={getFrequencyChipStyle(project.frequency)}
+                >
+                  {project.frequency}
+                </span>
+              )}
+              {project.department && !hiddenDetails.includes('department') && (
                 <span
                   className="shrink-0 whitespace-nowrap inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium"
                   style={getDepartmentChipStyle(project.department)}
@@ -133,7 +145,9 @@ function Node({ node, level, levelFields, path, expanded, onToggle }) {
 // the summary line above the tree when filters/search have narrowed
 // `records`; when omitted (e.g. the Upload preview, which has no filters)
 // the summary simply reads "X projects".
-export default function HierarchyTree({ records, levelFields = DEFAULT_HIERARCHY_LEVELS, fillHeight = false, searchActive = false, totalCount }) {
+// hiddenDetails: ids (weekNo, links, frequency, department) of project-line details
+// switched off in Customize view.
+export default function HierarchyTree({ records, levelFields = DEFAULT_HIERARCHY_LEVELS, fillHeight = false, searchActive = false, totalCount, hiddenDetails = [] }) {
   const tree = useMemo(() => buildHierarchy(records, levelFields), [records, levelFields]);
   const [expanded, setExpanded] = useState(() => new Set());
 
@@ -212,7 +226,7 @@ export default function HierarchyTree({ records, levelFields = DEFAULT_HIERARCHY
         }`}
       >
         {tree.map((node) => (
-          <Node key={node.key} node={node} level={0} levelFields={levelFields} path="" expanded={expanded} onToggle={onToggle} />
+          <Node key={node.key} node={node} level={0} levelFields={levelFields} path="" expanded={expanded} onToggle={onToggle} hiddenDetails={hiddenDetails} />
         ))}
       </div>
     </div>

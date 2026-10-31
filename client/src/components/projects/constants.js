@@ -156,6 +156,23 @@ export const getDepartmentColor = (department) => {
 // violet under review, blue underway, gray not begun.
 export const STATUSES = ['Delivered', 'Cancelled', 'Hold', 'Review', 'In Progress', 'Not Started'];
 
+// Derived (see computeFrequency in dataUtils), most to least frequent.
+export const FREQUENCIES = ['Daily', 'Weekly', 'Monthly', 'Quarterly', 'Yearly', 'One-time'];
+
+const FREQUENCY_COLORS = {
+  Daily: '#d03b3b',
+  Weekly: '#eb6834',
+  Monthly: '#2a78d6',
+  Quarterly: '#4a3aa7',
+  Yearly: '#0ca30c',
+  'One-time': '#898781',
+};
+
+export const getFrequencyChipStyle = (frequency) => {
+  const color = FREQUENCY_COLORS[frequency] || UNKNOWN_TAG_COLOR;
+  return { backgroundColor: `${color}1f`, color };
+};
+
 export const NO_STATUS_LABEL = 'No Status';
 
 const STATUS_COLORS = {
@@ -173,6 +190,15 @@ export const getStatusColor = (status) => STATUS_COLORS[status] || UNKNOWN_TAG_C
 export const getStatusChipStyle = (status) => {
   const color = getStatusColor(status);
   return { backgroundColor: `${color}1f`, color };
+};
+
+// Compact View's Work Count badge background, by how often a task repeated:
+// 10 or fewer = salmon, 11-20 = mild yellow, 21 or more = mild green. Text
+// stays the view's dark navy in every band, so only the fill changes.
+export const getWorkCountColor = (count) => {
+  if (count <= 10) return '#F7D6CF';
+  if (count <= 20) return '#FBF0B5';
+  return '#D3EDD6';
 };
 
 // Light tinted background + solid text, both derived from the same color, so

@@ -1,28 +1,40 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
-import { Download, ListTree, Table2, FolderKanban, Upload as UploadIcon } from 'lucide-react';
+import { Download, ListTree, Table2, LayoutList, FolderKanban, Upload as UploadIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '../../components/ui/button';
 import ProjectsFilters from '../../components/projects/ProjectsFilters';
 import ProjectsSimpleTable from '../../components/projects/ProjectsSimpleTable';
 import HierarchyTree from '../../components/projects/HierarchyTree';
+import ProjectsCompactView from '../../components/projects/ProjectsCompactView';
 import { getProjects } from '../../services/projectsApi';
-import { DEFAULT_FILTERS, filterRecords, getCascadingFilterOptions, sanitizeFilters, formatLinksForExport, validateProjectFilters } from '../../components/projects/dataUtils';
+import { DEFAULT_FILTERS, filterRecords, getCascadingFilterOptions, sanitizeFilters, attachFrequency, formatLinksForExport, validateProjectFilters } from '../../components/projects/dataUtils';
+import CustomizeViewMenu from '../../components/projects/CustomizeViewMenu';
+import useProjectViewPrefs from '../../components/projects/viewPrefs';
 import useUrlFilters from '../../lib/useUrlFilters';
 
-// The filters plus which view is open ('table' | 'hierarchy') all live in
-// the URL, so a copied link reopens exactly what's on screen.
+// The filters plus which view is open ('table' | 'hierarchy' | 'compact') all
+// live in the URL, so a copied link reopens exactly what's on screen.
+const VIEWS = ['table', 'hierarchy', 'compact'];
+const VIEW_HINTS = {
+  table: 'One row per project',
+  hierarchy: 'Browse by year, month, brand and category',
+  compact: 'One card per repeated task',
+};
 const URL_DEFAULTS = { ...DEFAULT_FILTERS, view: 'table' };
 const validateUrlState = (state) => ({
   ...validateProjectFilters(state),
-  view: state.view === 'hierarchy' ? 'hierarchy' : 'table',
+  view: VIEWS.includes(state.view) ? state.view : 'table',
 });
 
 export default function ProjectsList() {
-  const [projects, setProjects] = useState([]);
+  const [rawProjects, setProjects] = useState([]);
+  // Frequency is derived from the whole data set, never stored or uploaded.
+  const projects = useMemo(() => attachFrequency(rawProjects), [rawProjects]);
   const [loading, setLoading] = useState(true);
   const [urlState, setUrlState] = useUrlFilters(URL_DEFAULTS, { validate: validateUrlState });
   const viewMode = urlState.view;
+  const { prefs, toggle: togglePref, reset: resetPrefs, move: moveColumn } = useProjectViewPrefs(viewMode);
   const filters = useMemo(() => {
     const rest = { ...urlState };
     delete rest.view;
@@ -69,6 +81,19 @@ export default function ProjectsList() {
   // combination gets reset to "All" instead of silently showing a filtered
   // set that doesn't match what's displayed.
   const handleFiltersChange = (next) => setFilters(sanitizeFilters(projects, next));
+
+  // A filter switched off in Customize view must not keep narrowing the rows
+  // unseen, so its value goes back to "All" (also covers a shared link that
+  // carries a filter this browser has hidden).
+  const hiddenFilters = prefs.hiddenFilters;
+  useEffect(() => {
+    const stale = hiddenFilters.filter((key) => filters[key] !== DEFAULT_FILTERS[key]);
+    if (stale.length === 0) return;
+    const next = { ...filters };
+    stale.forEach((key) => { next[key] = DEFAULT_FILTERS[key]; });
+    setFilters(projects.length ? sanitizeFilters(projects, next) : next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hiddenFilters, filters]);
 
   // Column headers here match the import format exactly (see
   // projectExcelParser.service.js's HEADER_ALIASES / OPTIONAL_HEADER_ALIASES)
@@ -118,7 +143,7 @@ export default function ProjectsList() {
   return (
     <div
       className={`bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col ${
-        viewMode === 'table' ? '' : 'lg:h-[calc(100vh-8rem)]'
+        viewMode === 'hierarchy' ? 'lg:h-[calc(100vh-8rem)]' : ''
       }`}
     >
       <div className="p-6 pb-0 shrink-0">
@@ -127,43 +152,67 @@ export default function ProjectsList() {
             <h2 className="text-xl font-bold text-gray-900">All Projects</h2>
             <p className="text-sm text-gray-500">{filteredProjects.length} of {projects.length} project(s)</p>
           </div>
-          <Button variant="outline" onClick={handleExport}>
-            <Download className="w-4 h-4 mr-2" /> Export
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <CustomizeViewMenu view={viewMode} prefs={prefs} onToggle={togglePref} onReset={resetPrefs} onMove={moveColumn} />
+            <Button variant="outline" onClick={handleExport}>
+              <Download className="w-4 h-4 mr-2" /> Export
+            </Button>
+          </div>
         </div>
 
-        <div className="mb-6">
-          <ProjectsFilters filters={filters} onChange={handleFiltersChange} {...filterOptions} />
+        <div className="mb-5">
+          <ProjectsFilters filters={filters} onChange={handleFiltersChange} hiddenFilters={hiddenFilters} {...filterOptions} />
         </div>
 
-        <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
-          <button
-            type="button"
-            onClick={() => setViewMode('table')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-              viewMode === 'table' ? 'bg-primary/10 text-primary' : 'text-gray-500 hover:bg-gray-50'
-            }`}
-          >
-            <Table2 className="w-4 h-4" /> Table View
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode('hierarchy')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-              viewMode === 'hierarchy' ? 'bg-primary/10 text-primary' : 'text-gray-500 hover:bg-gray-50'
-            }`}
-          >
-            <ListTree className="w-4 h-4" /> Hierarchy View
-          </button>
+        {/* Segmented view switcher */}
+        <div className="flex flex-wrap items-center gap-3 pb-3">
+          <div className="inline-flex items-center gap-1 rounded-lg bg-slate-100 p-1" role="group" aria-label="View">
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              aria-pressed={viewMode === 'table'}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-sm font-medium transition-all ${
+                viewMode === 'table' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <Table2 className="w-4 h-4" /> Table View
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('hierarchy')}
+              aria-pressed={viewMode === 'hierarchy'}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-sm font-medium transition-all ${
+                viewMode === 'hierarchy' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <ListTree className="w-4 h-4" /> Hierarchy View
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('compact')}
+              aria-pressed={viewMode === 'compact'}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-sm font-medium transition-all ${
+                viewMode === 'compact' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <LayoutList className="w-4 h-4" /> Compact View
+            </button>
+          </div>
+          <span className="text-xs text-slate-400">{VIEW_HINTS[viewMode]}</span>
         </div>
       </div>
 
-      {viewMode === 'table' ? (
+      {viewMode === 'compact' ? (
+        // Like the table view, not clamped to the viewport - the page scrolls.
+        <div className="p-6 pt-4">
+          <ProjectsCompactView records={filteredProjects} hiddenColumns={prefs.hiddenColumns} columnOrder={prefs.columnOrder} />
+        </div>
+      ) : viewMode === 'table' ? (
         // Table view isn't clamped to the viewport: ProjectsSimpleTable
         // sets its own min-height (enough for ~20 rows) so the page scrolls
         // naturally instead of cramming rows into a short internal-scroll box.
         <div className="p-6 pt-4">
-          <ProjectsSimpleTable records={filteredProjects} />
+          <ProjectsSimpleTable records={filteredProjects} hiddenColumns={prefs.hiddenColumns} columnOrder={prefs.columnOrder} />
         </div>
       ) : (
         // Below lg the card above is auto-height (its fixed viewport-relative
@@ -173,7 +222,7 @@ export default function ProjectsList() {
         // nothing via flex-1/min-h-0. At lg+ this is unchanged from the
         // original flex-1/min-h-0 fill-remaining-space behavior.
         <div className="h-[70vh] lg:h-auto lg:flex-1 lg:min-h-0 p-6 pt-4">
-          <HierarchyTree records={filteredProjects} fillHeight searchActive={searchActive} totalCount={projects.length} />
+          <HierarchyTree records={filteredProjects} hiddenDetails={prefs.hiddenColumns} fillHeight searchActive={searchActive} totalCount={projects.length} />
         </div>
       )}
     </div>

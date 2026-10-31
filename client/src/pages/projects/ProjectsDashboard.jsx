@@ -9,11 +9,15 @@ import ProjectsFilters from '../../components/projects/ProjectsFilters';
 import { DEFAULT_FILTERS, filterRecords, getCascadingFilterOptions, sanitizeFilters, validateProjectFilters } from '../../components/projects/dataUtils';
 import useUrlFilters from '../../lib/useUrlFilters';
 
+// The dashboard has no Frequency filter (records there carry no derived
+// frequency), so its URL state omits that key.
+const { frequency: _frequency, ...DASHBOARD_FILTERS } = DEFAULT_FILTERS;
+
 export default function ProjectsDashboard() {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   // Filters live in the URL too, so a copied link reopens filtered.
-  const [filters, setFilters] = useUrlFilters(DEFAULT_FILTERS, { validate: validateProjectFilters });
+  const [filters, setFilters] = useUrlFilters(DASHBOARD_FILTERS, { validate: validateProjectFilters });
 
   useEffect(() => {
     fetchProjects();
