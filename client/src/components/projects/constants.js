@@ -156,7 +156,8 @@ export const getDepartmentColor = (department) => {
 // violet under review, blue underway, gray not begun.
 export const STATUSES = ['Delivered', 'Cancelled', 'Hold', 'Review', 'In Progress', 'Not Started'];
 
-// Derived (see computeFrequency in dataUtils), most to least frequent.
+// The only values the sheet's Frequency column can set (mirrors the server's
+// projectFrequencies.js), most to least frequent.
 export const FREQUENCIES = ['Daily', 'Weekly', 'Monthly', 'Quarterly', 'Yearly', 'One-time'];
 
 const FREQUENCY_COLORS = {

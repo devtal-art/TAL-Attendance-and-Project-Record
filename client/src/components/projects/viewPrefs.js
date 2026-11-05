@@ -65,6 +65,7 @@ export const VIEW_SECTIONS = {
         { id: 'weekNo', label: 'Week No.' },
         { id: 'department', label: 'Department' },
         { id: 'status', label: 'Status' },
+        { id: 'description', label: 'Description' },
         { id: 'links', label: 'Links' },
       ],
     },

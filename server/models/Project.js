@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { PROJECT_STATUSES } = require('../utils/projectStatuses');
+const { PROJECT_FREQUENCIES } = require('../utils/projectFrequencies');
 
 const projectSchema = new mongoose.Schema({
   year: {
@@ -47,6 +48,21 @@ const projectSchema = new mongoose.Schema({
   status: {
     type: String,
     enum: [...PROJECT_STATUSES, ''],
+    default: '',
+  },
+  // Optional like status: records saved before this field existed are left
+  // untouched - the frontend reads a missing frequency the same as ''. Only
+  // the six values in projectFrequencies.js are allowed.
+  frequency: {
+    type: String,
+    enum: [...PROJECT_FREQUENCIES, ''],
+    default: '',
+  },
+  // Optional and additive like the fields above: records saved before this
+  // field existed are left untouched - the frontend reads a missing
+  // description the same as '' (see DescriptionModal.jsx).
+  description: {
+    type: String,
     default: '',
   },
 }, { timestamps: true });

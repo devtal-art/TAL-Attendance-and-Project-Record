@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, ChevronDown, ArrowUp, ArrowDown, ArrowUpDown
 import { getTagChipStyle, getDepartmentChipStyle, getStatusChipStyle, getFrequencyChipStyle, getWorkCountColor, FREQUENCIES, BRAND_CHIP_STYLE } from './constants';
 import { buildCompactTasks } from './dataUtils';
 import ProjectLinks from './ProjectLinks';
+import ProjectDescription from './ProjectDescription';
 
 const PAGE_SIZE = 50;
 const PAGE_SIZE_OPTIONS = [20, 50, 100, 150, 200];
@@ -20,7 +21,11 @@ const SORTERS = {
   date: (a, b) =>
     (a.lastPeriod ?? Infinity) - (b.lastPeriod ?? Infinity) ||
     (a.firstPeriod ?? Infinity) - (b.firstPeriod ?? Infinity),
-  frequency: (a, b) => FREQUENCIES.indexOf(a.frequency) - FREQUENCIES.indexOf(b.frequency),
+  // A task can have several: ordered by its most frequent one (blank first when
+  // ascending, as in the table), then by how many it has.
+  frequency: (a, b) =>
+    FREQUENCIES.indexOf(a.frequencies[0]) - FREQUENCIES.indexOf(b.frequencies[0]) ||
+    a.frequencies.length - b.frequencies.length,
   workCount: (a, b) => a.workCount - b.workCount,
 };
 
@@ -59,7 +64,8 @@ const DETAIL_COLUMNS = [
   { id: 'weekNo', label: 'Week No.', width: 17 },
   { id: 'department', label: 'Department', width: 22 },
   { id: 'status', label: 'Status', width: 20 },
-  { id: 'links', label: 'Links', width: 17 },
+  { id: 'description', label: 'Description', width: 17 },
+  { id: 'links', label: 'Links', width: 12 },
 ];
 const NUMBER_COLUMN_WIDTH = 6;
 
@@ -86,13 +92,14 @@ function DetailPanel({ task, hiddenColumns }) {
       ) : (
         <span className="text-slate-400">-</span>
       ),
+    description: (r) => <ProjectDescription record={r} />,
     links: (r) => <ProjectLinks links={r.links} className="text-slate-400 hover:text-primary" />,
   };
 
   return (
     <div className="bg-[#f1f6ff] px-4 pb-4 pt-1 sm:px-5">
       <div className="overflow-auto rounded-xl border border-blue-100 bg-white">
-        <table className={`w-full text-sm ${columns.length > 3 ? 'min-w-[560px]' : ''} ${INK}`}>
+        <table className={`w-full text-sm ${columns.length > 4 ? 'min-w-[760px]' : columns.length > 3 ? 'min-w-[560px]' : ''} ${INK}`}>
           <colgroup>
             <col style={{ width: pct(NUMBER_COLUMN_WIDTH) }} />
             {columns.map((c) => <col key={c.id} style={{ width: pct(c.width) }} />)}
@@ -155,10 +162,16 @@ function TaskCard({ task, isOpen, onToggle, columns, hiddenColumns }) {
       </div>
     ),
     frequency: (
-      <div key="frequency" className="min-w-0">
-        <span className="block w-fit max-w-full truncate rounded-full px-3.5 py-1 text-sm font-medium" style={getFrequencyChipStyle(task.frequency)}>
-          {task.frequency || '-'}
-        </span>
+      <div key="frequency" className="flex min-w-0 flex-wrap gap-1.5">
+        {task.frequencies.length > 0 ? (
+          task.frequencies.map((frequency) => (
+            <span key={frequency} className="block w-fit max-w-full truncate rounded-full px-3.5 py-1 text-sm font-medium" style={getFrequencyChipStyle(frequency)}>
+              {frequency}
+            </span>
+          ))
+        ) : (
+          <span className="text-slate-400">-</span>
+        )}
       </div>
     ),
     workCount: (

@@ -75,8 +75,7 @@ export const filterRecords = (records, filters) => {
     if (!matches(r.category, filters.category)) return false;
     if (!matches(r.department, filters.department)) return false;
     if (!matches(r.status ?? '', filters.status)) return false;
-    // Frequency is derived (see attachFrequency); pages whose records don't
-    // carry it also don't carry the filter.
+    // Pages without a Frequency filter (the dashboard) carry no frequency key.
     if (filters.frequency != null && !matches(r.frequency ?? '', filters.frequency)) return false;
     if (search) {
       const haystack = `${r.taskName ?? ''} ${r.brand ?? ''} ${r.category ?? ''} ${r.department ?? ''}`.toLowerCase();
@@ -249,7 +248,10 @@ export const buildCompactTasks = (records) => {
       taskName: first.taskName,
       brand: first.brand,
       category: first.category,
-      frequency: first.frequency ?? '',
+      // Set per row by the sheet, so a task's rows can differ or be blank: every
+      // distinct value entered, most to least frequent (empty if none).
+      frequencies: Array.from(new Set(sorted.map((e) => e.record.frequency).filter(Boolean)))
+        .sort((a, b) => FREQUENCIES.indexOf(a) - FREQUENCIES.indexOf(b)),
       workCount: sorted.length,
       occurrences: sorted.map((e) => e.record),
       dateLabel: formatFrequency(periods),
@@ -257,89 +259,6 @@ export const buildCompactTasks = (records) => {
       lastPeriod: periods.length ? periods[periods.length - 1] : null,
     };
   });
-};
-
-// How often a task recurs - derived, never entered. The sheet has Year,
-// Month and an optional Week No. (no day), so the rule works from those,
-// over ALL of a task's records (same Brand + Category + Task Name):
-//
-//   One record -> One-time.
-//
-//   If the records carry week numbers (at least two, covering half or more
-//   of them), the cadence is measured in weeks. A month is NOT a limit: a
-//   task done every week can run to 5 or 6 weeks in a calendar month.
-//     - on average 2+ records per active week -> Daily
-//     - otherwise by the typical (median) gap between its weeks:
-//         up to 2.5 weeks  -> Weekly (fortnightly counts)
-//         up to 8.5 weeks  -> Monthly
-//         up to 32.5 weeks -> Quarterly
-//         beyond           -> Yearly
-//
-//   Otherwise the cadence is measured in months:
-//     - on average more than 5 records per active month -> Daily
-//     - on average 2-5 per active month                 -> Weekly
-//     - else, with 2+ months, by the median gap in months:
-//         up to 1.5 -> Monthly, up to 7.5 -> Quarterly, beyond -> Yearly
-//     - only one placeable month -> One-time
-const MAX_WEEKLY_PER_MONTH = 5;
-const WEEK_GAP_LIMITS = [[2.5, 'Weekly'], [8.5, 'Monthly'], [32.5, 'Quarterly']];
-const MONTH_GAP_LIMITS = [[1.5, 'Monthly'], [7.5, 'Quarterly']];
-const WEEKS_PER_YEAR = 53;
-
-const median = (numbers) => {
-  const sorted = [...numbers].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
-};
-
-const frequencyFromGaps = (positions, limits) => {
-  const gaps = positions.slice(1).map((p, i) => p - positions[i]);
-  const typical = median(gaps);
-  const hit = limits.find(([limit]) => typical <= limit);
-  return hit ? hit[1] : 'Yearly';
-};
-
-// Absolute week position (year * 53 + week no.), or null without a usable
-// year / week number.
-const weekPeriodOf = (record) => {
-  const year = Number(record.year);
-  const week = parseInt(record.weekNo, 10);
-  return Number.isFinite(year) && !Number.isNaN(week) && week > 0 ? year * WEEKS_PER_YEAR + week : null;
-};
-
-export const computeFrequency = (records) => {
-  if (records.length <= 1) return 'One-time';
-
-  const weekly = records.map(weekPeriodOf).filter((p) => p !== null);
-  if (weekly.length >= 2 && weekly.length * 2 >= records.length) {
-    const weeks = Array.from(new Set(weekly)).sort((a, b) => a - b);
-    if (weekly.length / weeks.length >= 2) return 'Daily';
-    if (weeks.length >= 2) return frequencyFromGaps(weeks, WEEK_GAP_LIMITS);
-  }
-
-  const months = records.map(periodOf).filter((p) => p !== null);
-  const periods = Array.from(new Set(months)).sort((a, b) => a - b);
-  if (periods.length === 0) return 'One-time';
-  const perMonth = months.length / periods.length;
-  if (perMonth > MAX_WEEKLY_PER_MONTH) return 'Daily';
-  if (perMonth >= 2) return 'Weekly';
-  if (periods.length < 2) return 'One-time';
-  return frequencyFromGaps(periods, MONTH_GAP_LIMITS);
-};
-
-// Adds `frequency` to every record. Computed from the full record list the
-// caller passes (not a filtered subset), so filtering to one month doesn't
-// turn every task into "One-time".
-export const attachFrequency = (records) => {
-  const groups = new Map();
-  records.forEach((record) => {
-    const key = taskKeyOf(record);
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(record);
-  });
-  const frequencyByKey = new Map();
-  groups.forEach((group, key) => frequencyByKey.set(key, computeFrequency(group)));
-  return records.map((record) => ({ ...record, frequency: frequencyByKey.get(taskKeyOf(record)) }));
 };
 
 const compareGroupKeys = (field, a, b) => {

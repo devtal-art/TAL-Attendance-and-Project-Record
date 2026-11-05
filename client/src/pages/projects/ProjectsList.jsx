@@ -8,7 +8,7 @@ import ProjectsSimpleTable from '../../components/projects/ProjectsSimpleTable';
 import HierarchyTree from '../../components/projects/HierarchyTree';
 import ProjectsCompactView from '../../components/projects/ProjectsCompactView';
 import { getProjects } from '../../services/projectsApi';
-import { DEFAULT_FILTERS, filterRecords, getCascadingFilterOptions, sanitizeFilters, attachFrequency, formatLinksForExport, validateProjectFilters } from '../../components/projects/dataUtils';
+import { DEFAULT_FILTERS, filterRecords, getCascadingFilterOptions, sanitizeFilters, formatLinksForExport, validateProjectFilters } from '../../components/projects/dataUtils';
 import CustomizeViewMenu from '../../components/projects/CustomizeViewMenu';
 import useProjectViewPrefs from '../../components/projects/viewPrefs';
 import useUrlFilters from '../../lib/useUrlFilters';
@@ -28,9 +28,7 @@ const validateUrlState = (state) => ({
 });
 
 export default function ProjectsList() {
-  const [rawProjects, setProjects] = useState([]);
-  // Frequency is derived from the whole data set, never stored or uploaded.
-  const projects = useMemo(() => attachFrequency(rawProjects), [rawProjects]);
+  const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [urlState, setUrlState] = useUrlFilters(URL_DEFAULTS, { validate: validateUrlState });
   const viewMode = urlState.view;
@@ -111,9 +109,11 @@ export default function ProjectsList() {
       'Task Name': r.taskName,
       Links: formatLinksForExport(r.links),
       Status: r.status || '',
+      Frequency: r.frequency || '',
+      Description: r.description || '',
     }));
     const worksheet = XLSX.utils.json_to_sheet(rows);
-    worksheet['!cols'] = [{ wch: 6 }, { wch: 24 }, { wch: 22 }, { wch: 16 }, { wch: 9 }, { wch: 8 }, { wch: 40 }, { wch: 55 }, { wch: 14 }];
+    worksheet['!cols'] = [{ wch: 6 }, { wch: 24 }, { wch: 22 }, { wch: 16 }, { wch: 9 }, { wch: 8 }, { wch: 40 }, { wch: 55 }, { wch: 14 }, { wch: 12 }, { wch: 60 }];
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Projects');
     XLSX.writeFile(workbook, `projects_export_${Date.now()}.xlsx`);

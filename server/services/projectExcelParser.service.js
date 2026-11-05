@@ -1,5 +1,6 @@
 const xlsx = require('xlsx');
 const { normalizeStatus } = require('../utils/projectStatuses');
+const { normalizeFrequency } = require('../utils/projectFrequencies');
 
 // Canonical field -> the header spellings (case/whitespace-insensitive) that
 // resolve to it. "category" also accepts "project name" because the sheets
@@ -24,6 +25,8 @@ const OPTIONAL_HEADER_ALIASES = {
   weekNo: ['week no', 'week no.', 'week number', 'week'],
   links: ['links', 'link'],
   status: ['status'],
+  frequency: ['frequency', 'frequencies'],
+  description: ['description', 'descriptions', 'work description'],
 };
 const CANONICAL_LABELS = {
   year: 'Year',
@@ -150,6 +153,9 @@ exports.parseProjectsExcel = (filePath) => {
       taskName: normalizeValue(row[fieldToColumnIndex.taskName]),
       weekNo: 'weekNo' in optionalFieldToColumnIndex ? normalizeValue(row[optionalFieldToColumnIndex.weekNo]) : '',
       links: 'links' in optionalFieldToColumnIndex ? parseLinks(row[optionalFieldToColumnIndex.links]) : [],
+      // Free text, so only trimmed: normalizeValue would flatten the line
+      // breaks of a multi-line cell.
+      description: 'description' in optionalFieldToColumnIndex ? String(row[optionalFieldToColumnIndex.description] ?? '').trim() : '',
     };
 
     // Status must be one of the six allowed values (see projectStatuses.js).
@@ -160,6 +166,11 @@ exports.parseProjectsExcel = (filePath) => {
     const rawStatus = 'status' in optionalFieldToColumnIndex ? normalizeValue(row[optionalFieldToColumnIndex.status]) : '';
     record.status = normalizeStatus(rawStatus);
     record.unrecognizedStatus = rawStatus && !record.status ? rawStatus : '';
+
+    // Same rule as Status, against the six values in projectFrequencies.js.
+    const rawFrequency = 'frequency' in optionalFieldToColumnIndex ? normalizeValue(row[optionalFieldToColumnIndex.frequency]) : '';
+    record.frequency = normalizeFrequency(rawFrequency);
+    record.unrecognizedFrequency = rawFrequency && !record.frequency ? rawFrequency : '';
 
     const yearNum = parseInt(record.year, 10);
     record.year = Number.isNaN(yearNum) ? record.year : yearNum;

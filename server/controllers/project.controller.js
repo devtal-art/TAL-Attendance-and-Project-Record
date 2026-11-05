@@ -57,6 +57,7 @@ const markExistingDuplicates = async (records) => {
 };
 
 const countUnrecognizedStatus = (records) => records.filter((r) => r.valid && r.unrecognizedStatus).length;
+const countUnrecognizedFrequency = (records) => records.filter((r) => r.valid && r.unrecognizedFrequency).length;
 
 // Parses the uploaded file and returns the full preview (valid + invalid
 // rows, in-file duplicate flags, and now also which valid rows already exist
@@ -73,7 +74,8 @@ exports.previewProjects = async (req, res) => {
     const existingDuplicateCount = records.filter((r) => r.existsInDatabase).length;
     const statusUpdateCount = records.filter((r) => r.updatesExistingStatus).length;
     const unrecognizedStatusCount = countUnrecognizedStatus(records);
-    res.status(200).json({ records, invalidCount, duplicateCount, existingDuplicateCount, statusUpdateCount, unrecognizedStatusCount });
+    const unrecognizedFrequencyCount = countUnrecognizedFrequency(records);
+    res.status(200).json({ records, invalidCount, duplicateCount, existingDuplicateCount, statusUpdateCount, unrecognizedStatusCount, unrecognizedFrequencyCount });
   } catch (error) {
     const status = PARSER_ERROR_CODES.includes(error.code) ? 400 : 500;
     res.status(status).json({ message: error.message });
@@ -104,6 +106,7 @@ exports.uploadProjects = async (req, res) => {
     const newRecords = validRecords.filter((r) => !r.existsInDatabase);
     const existingDuplicateCount = validRecords.length - newRecords.length;
     const unrecognizedStatusCount = countUnrecognizedStatus(records);
+    const unrecognizedFrequencyCount = countUnrecognizedFrequency(records);
 
     if (newRecords.length === 0 && statusUpdates.length === 0) {
       return res.status(400).json({
@@ -132,14 +135,16 @@ exports.uploadProjects = async (req, res) => {
 
     const statusNote = statusUpdatedCount > 0 ? ` Status was filled in for ${statusUpdatedCount} existing project(s) that had none.` : '';
     const unrecognizedNote = unrecognizedStatusCount > 0 ? ` ${unrecognizedStatusCount} row(s) had an unrecognized Status and were saved without one.` : '';
+    const unrecognizedFrequencyNote = unrecognizedFrequencyCount > 0 ? ` ${unrecognizedFrequencyCount} row(s) had an unrecognized Frequency and were saved without one.` : '';
 
     res.status(200).json({
-      message: `Added ${newRecords.length} new project record(s). ${existingDuplicateCount} already existed and were skipped. ${invalidCount} invalid row(s) were skipped.${statusNote}${unrecognizedNote}`,
+      message: `Added ${newRecords.length} new project record(s). ${existingDuplicateCount} already existed and were skipped. ${invalidCount} invalid row(s) were skipped.${statusNote}${unrecognizedNote}${unrecognizedFrequencyNote}`,
       count: newRecords.length,
       existingDuplicateCount,
       invalidCount,
       statusUpdatedCount,
       unrecognizedStatusCount,
+      unrecognizedFrequencyCount,
     });
   } catch (error) {
     const status = PARSER_ERROR_CODES.includes(error.code) ? 400 : 500;

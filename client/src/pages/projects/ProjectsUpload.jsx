@@ -11,7 +11,7 @@ import { useNavigate } from 'react-router-dom';
 
 // Mirrors the exact headers projectExcelParser.service.js resolves on the
 // server: Year, Brand, Category, Department, Month, Task Name are required;
-// Week No. and Links are optional (a sheet without them still parses fine -
+// Week No., Links, Status, Frequency and Description are optional (a sheet without them still parses fine -
 // see the parser's OPTIONAL_HEADER_ALIASES). Links demonstrates the one
 // line per "Label: https://..." pair format the parser expects; a row left
 // blank there shows that's fine too.
@@ -26,6 +26,8 @@ const SAMPLE_ROWS = [
     'Task Name': 'Instagram post - new menu launch',
     Links: 'Screenshot: https://shortlink.gs39.co.in/r.php?c=B372Mv\nScreenshot 2: https://shortlink.gs39.co.in/r.php?c=fFUGDY',
     Status: 'Delivered',
+    Frequency: 'Weekly',
+    Description: 'Designed and published the new menu launch post.\nChecked the prices against the latest menu.',
   },
   {
     Year: 2026,
@@ -37,6 +39,8 @@ const SAMPLE_ROWS = [
     'Task Name': 'Homepage banner update',
     Links: '',
     Status: 'In Progress',
+    Frequency: '',
+    Description: '',
   },
   {
     Year: 2026,
@@ -48,12 +52,14 @@ const SAMPLE_ROWS = [
     'Task Name': 'Ramadan promo flyer',
     Links: 'Screenshot: https://shortlink.gs39.co.in/r.php?c=fFUGDY',
     Status: 'Not Started',
+    Frequency: 'One-time',
+    Description: 'Flyer for the Ramadan promotion.',
   },
 ];
 
 const downloadSampleSheet = () => {
   const worksheet = XLSX.utils.json_to_sheet(SAMPLE_ROWS);
-  worksheet['!cols'] = [{ wch: 6 }, { wch: 20 }, { wch: 24 }, { wch: 18 }, { wch: 9 }, { wch: 8 }, { wch: 40 }, { wch: 55 }, { wch: 14 }];
+  worksheet['!cols'] = [{ wch: 6 }, { wch: 20 }, { wch: 24 }, { wch: 18 }, { wch: 9 }, { wch: 8 }, { wch: 40 }, { wch: 55 }, { wch: 14 }, { wch: 12 }, { wch: 60 }];
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Projects');
   XLSX.writeFile(workbook, 'project_sheet_sample_format.xlsx');
@@ -203,6 +209,7 @@ export default function ProjectsUpload() {
           existingDuplicateCount={previewData.existingDuplicateCount}
           statusUpdateCount={previewData.statusUpdateCount}
           unrecognizedStatusCount={previewData.unrecognizedStatusCount}
+          unrecognizedFrequencyCount={previewData.unrecognizedFrequencyCount}
         />
 
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
@@ -248,7 +255,7 @@ export default function ProjectsUpload() {
           Required columns: Year, Brand, Category, Department, Month, Task Name
         </p>
         <p className="text-xs text-gray-400 mb-4 text-center">
-          Optional: Week No., Links (one "Label: https://..." per line), Status (Delivered, Cancelled, Hold, Review, In Progress or Not Started) — see the sample format
+          Optional: Week No., Links (one "Label: https://..." per line), Status (Delivered, Cancelled, Hold, Review, In Progress or Not Started), Frequency (Daily, Weekly, Monthly, Quarterly, Yearly or One-time), Description — see the sample format
         </p>
         <div className="flex justify-center mb-6">
           <Button type="button" variant="outline" size="sm" onClick={downloadSampleSheet}>

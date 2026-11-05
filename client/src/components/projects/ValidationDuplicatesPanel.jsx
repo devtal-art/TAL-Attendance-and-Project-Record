@@ -81,13 +81,15 @@ export default function ValidationDuplicatesPanel({
   existingDuplicateCount = 0,
   statusUpdateCount = 0,
   unrecognizedStatusCount = 0,
+  unrecognizedFrequencyCount = 0,
 }) {
   const invalidRows = useMemo(() => records.filter((r) => !r.valid), [records]);
   const duplicateRows = useMemo(() => records.filter((r) => r.isDuplicate), [records]);
   const existingDuplicateRows = useMemo(() => records.filter((r) => r.existsInDatabase), [records]);
   const unrecognizedStatusRows = useMemo(() => records.filter((r) => r.valid && r.unrecognizedStatus), [records]);
+  const unrecognizedFrequencyRows = useMemo(() => records.filter((r) => r.valid && r.unrecognizedFrequency), [records]);
 
-  if (invalidCount === 0 && duplicateCount === 0 && existingDuplicateCount === 0 && unrecognizedStatusCount === 0) return null;
+  if (invalidCount === 0 && duplicateCount === 0 && existingDuplicateCount === 0 && unrecognizedStatusCount === 0 && unrecognizedFrequencyCount === 0) return null;
 
   return (
     <div className="space-y-3">
@@ -158,6 +160,32 @@ export default function ValidationDuplicatesPanel({
                   <td className="py-1 pr-3">{r.rowNumber}</td>
                   <td className="py-1 pr-3">{r.taskName}</td>
                   <td className="py-1">{r.unrecognizedStatus}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Section>
+      )}
+
+      {unrecognizedFrequencyCount > 0 && (
+        <Section
+          title={`${unrecognizedFrequencyCount} row(s) have a Frequency that isn't one of Daily, Weekly, Monthly, Quarterly, Yearly, One-time — they'll be saved without a Frequency`}
+          tone="warning"
+        >
+          <table className="w-full min-w-[420px] text-xs">
+            <thead>
+              <tr className="text-left text-amber-700">
+                <th className="py-1 pr-3 font-medium">Row</th>
+                <th className="py-1 pr-3 font-medium">Project Name</th>
+                <th className="py-1 font-medium">Frequency in file</th>
+              </tr>
+            </thead>
+            <tbody>
+              {unrecognizedFrequencyRows.map((r) => (
+                <tr key={r.rowNumber} className="border-t border-amber-100">
+                  <td className="py-1 pr-3">{r.rowNumber}</td>
+                  <td className="py-1 pr-3">{r.taskName}</td>
+                  <td className="py-1">{r.unrecognizedFrequency}</td>
                 </tr>
               ))}
             </tbody>
