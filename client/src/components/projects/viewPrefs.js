@@ -9,6 +9,7 @@ export const FILTER_FIELDS = [
   { id: 'year', label: 'Year' },
   { id: 'quarter', label: 'Quarter' },
   { id: 'month', label: 'Month' },
+  { id: 'week', label: 'Week' },
   { id: 'brand', label: 'Brand' },
   { id: 'category', label: 'Category' },
   { id: 'department', label: 'Department' },
