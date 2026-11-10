@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
-import { Download, ListTree, Table2, LayoutList, FolderKanban, Upload as UploadIcon } from 'lucide-react';
+import { Download, ListTree, Table2, LayoutList, FolderKanban, Tags, ListChecks, Upload as UploadIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '../../components/ui/button';
 import ProjectsFilters from '../../components/projects/ProjectsFilters';
@@ -21,10 +21,21 @@ const VIEW_HINTS = {
   hierarchy: 'Browse by year, month, brand and category',
   compact: 'One card per repeated task',
 };
-const URL_DEFAULTS = { ...DEFAULT_FILTERS, view: 'table' };
+// Compact view leads with either Category or Project Name ('by'); By
+// Category is the default, so only '&by=task' ever shows in the URL.
+// Both in the app's primary colour: the selected one filled, the other an
+// outline - so it reads apart from the grey Table/Hierarchy/Compact switcher.
+const COMPACT_MODE_ACTIVE = 'border-primary bg-primary text-white';
+const COMPACT_MODE_IDLE = 'border-primary/30 bg-white text-primary hover:bg-primary/10';
+const COMPACT_MODES = [
+  { id: 'category', label: 'View By Category', Icon: Tags },
+  { id: 'task', label: 'View By Task', Icon: ListChecks },
+];
+const URL_DEFAULTS = { ...DEFAULT_FILTERS, view: 'table', by: 'category' };
 const validateUrlState = (state) => ({
   ...validateProjectFilters(state),
   view: VIEWS.includes(state.view) ? state.view : 'table',
+  by: COMPACT_MODES.some((m) => m.id === state.by) ? state.by : 'category',
 });
 
 export default function ProjectsList() {
@@ -36,10 +47,13 @@ export default function ProjectsList() {
   const filters = useMemo(() => {
     const rest = { ...urlState };
     delete rest.view;
+    delete rest.by;
     return rest;
   }, [urlState]);
-  const setFilters = (next) => setUrlState((prev) => ({ ...next, view: prev.view }));
+  const compactBy = urlState.by;
+  const setFilters = (next) => setUrlState((prev) => ({ ...next, view: prev.view, by: prev.by }));
   const setViewMode = (view) => setUrlState((prev) => ({ ...prev, view }));
+  const setCompactBy = (by) => setUrlState((prev) => ({ ...prev, by }));
 
   useEffect(() => {
     fetchProjects();
@@ -194,14 +208,39 @@ export default function ProjectsList() {
               <LayoutList className="w-4 h-4" /> Compact View
             </button>
           </div>
-          <span className="text-xs text-slate-400">{VIEW_HINTS[viewMode]}</span>
+          <span className="text-xs text-slate-400">
+            {viewMode === 'compact' && compactBy === 'category' ? 'One card per category, listing its tasks' : VIEW_HINTS[viewMode]}
+          </span>
         </div>
+
+        {/* Compact only: its own line, each mode in its own colour. */}
+        {viewMode === 'compact' && (
+          <div className="flex flex-wrap items-center gap-2 pb-3" role="group" aria-label="Compact view by">
+            {COMPACT_MODES.map((mode) => {
+              const active = compactBy === mode.id;
+              return (
+                <button
+                  key={mode.id}
+                  type="button"
+                  onClick={() => setCompactBy(mode.id)}
+                  aria-pressed={active}
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-semibold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1 ${
+                    active ? `${COMPACT_MODE_ACTIVE} shadow-sm` : COMPACT_MODE_IDLE
+                  }`}
+                >
+                  <mode.Icon className="h-4 w-4" />
+                  {mode.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {viewMode === 'compact' ? (
         // Like the table view, not clamped to the viewport - the page scrolls.
         <div className="p-6 pt-4">
-          <ProjectsCompactView records={filteredProjects} hiddenColumns={prefs.hiddenColumns} columnOrder={prefs.columnOrder} />
+          <ProjectsCompactView records={filteredProjects} by={compactBy} hiddenColumns={prefs.hiddenColumns} columnOrder={prefs.columnOrder} />
         </div>
       ) : viewMode === 'table' ? (
         // Table view isn't clamped to the viewport: ProjectsSimpleTable

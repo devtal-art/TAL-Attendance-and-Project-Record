@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Button } from '../ui/button';
 import { ChevronLeft, ChevronRight, ChevronDown, ArrowUp, ArrowDown, ArrowUpDown, CalendarDays, FolderOpen } from 'lucide-react';
 import { getTagChipStyle, getDepartmentChipStyle, getStatusChipStyle, getFrequencyChipStyle, getWorkCountColor, FREQUENCIES, BRAND_CHIP_STYLE } from './constants';
-import { buildCompactTasks } from './dataUtils';
+import { buildCompactTasks, buildCompactCategories } from './dataUtils';
 import ProjectLinks from './ProjectLinks';
 import ProjectDescription from './ProjectDescription';
 
@@ -64,6 +64,9 @@ const DETAIL_COLUMNS = [
   { id: 'weekNo', label: 'Week No.', width: 17 },
   { id: 'department', label: 'Department', width: 22 },
   { id: 'status', label: 'Status', width: 20 },
+  // Its own id (not 'frequency'): hidden ids are shared with the card header,
+  // which already has a Frequency column that must toggle independently.
+  { id: 'occurrenceFrequency', label: 'Frequency', width: 15 },
   { id: 'description', label: 'Description', width: 17 },
   { id: 'links', label: 'Links', width: 12 },
 ];
@@ -72,11 +75,19 @@ const NUMBER_COLUMN_WIDTH = 6;
 // What an open card adds on top of its header: just the individual
 // occurrences. The task's name, brand, category, date range and count are
 // already in the header directly above, so none of that is repeated here.
-function DetailPanel({ task, hiddenColumns }) {
-  const columns = DETAIL_COLUMNS.filter((c) => !hiddenColumns.includes(c.id));
+// By Category, the card mixes several tasks, so each row also names its
+// project (right after '#'); By Task that's the card's own title.
+const PROJECT_NAME_COLUMN = { id: 'projectName', label: 'Project Name', width: 26 };
+
+function DetailPanel({ task, hiddenColumns, showProjectName = false }) {
+  const columns = [
+    ...(showProjectName ? [PROJECT_NAME_COLUMN] : []),
+    ...DETAIL_COLUMNS.filter((c) => !hiddenColumns.includes(c.id)),
+  ];
   const widthTotal = NUMBER_COLUMN_WIDTH + columns.reduce((sum, c) => sum + c.width, 0);
   const pct = (w) => `${(w / widthTotal) * 100}%`;
   const cells = {
+    projectName: (r) => <span className="font-medium">{r.taskName}</span>,
     monthYear: (r) => <span className="whitespace-nowrap">{r.month} {r.year}</span>,
     weekNo: (r) => r.weekNo || '-',
     department: (r) => (
@@ -92,6 +103,14 @@ function DetailPanel({ task, hiddenColumns }) {
       ) : (
         <span className="text-slate-400">-</span>
       ),
+    occurrenceFrequency: (r) =>
+      r.frequency ? (
+        <span className="inline-flex items-center whitespace-nowrap rounded-full px-3.5 py-1 text-sm font-medium" style={getFrequencyChipStyle(r.frequency)}>
+          {r.frequency}
+        </span>
+      ) : (
+        <span className="text-slate-400">-</span>
+      ),
     description: (r) => <ProjectDescription record={r} />,
     links: (r) => <ProjectLinks links={r.links} className="text-slate-400 hover:text-primary" />,
   };
@@ -99,7 +118,7 @@ function DetailPanel({ task, hiddenColumns }) {
   return (
     <div className="bg-[#f1f6ff] px-4 pb-4 pt-1 sm:px-5">
       <div className="overflow-auto rounded-xl border border-blue-100 bg-white">
-        <table className={`w-full text-sm ${columns.length > 4 ? 'min-w-[760px]' : columns.length > 3 ? 'min-w-[560px]' : ''} ${INK}`}>
+        <table className={`w-full text-sm ${columns.length > 7 ? 'min-w-[1040px]' : columns.length > 6 ? 'min-w-[880px]' : columns.length > 4 ? 'min-w-[760px]' : columns.length > 3 ? 'min-w-[560px]' : ''} ${INK}`}>
           <colgroup>
             <col style={{ width: pct(NUMBER_COLUMN_WIDTH) }} />
             {columns.map((c) => <col key={c.id} style={{ width: pct(c.width) }} />)}
@@ -131,24 +150,30 @@ function DetailPanel({ task, hiddenColumns }) {
 // accent along the left edge. overflow-hidden clips that accent to the
 // card's rounded corners so it follows the card's shape. Collapsed cards
 // stay plain white.
-function TaskCard({ task, isOpen, onToggle, columns, hiddenColumns }) {
+// `task` is either a task (By Task) or a category entry from
+// buildCompactCategories (`isCategory`, By Category). A category card has the
+// same pattern as a task card: the category is its title (where a task shows
+// its name), followed by the same Brand/Date/Frequency/Work Count cells.
+// `children` is what opens below the header (defaults to the occurrence table).
+function TaskCard({ task, isOpen, onToggle, columns, hiddenColumns, isCategory = false, children }) {
+  const title = (text) => (
+    <span className={`text-[17px] font-semibold leading-snug ${isOpen ? 'text-blue-800' : INK}`}>{text}</span>
+  );
+  // A category can span several brands: the first one's chip, then "+N".
+  const brands = isCategory ? task.brands : [task.brand];
   const cells = {
-    taskName: (
-      <div key="taskName" className="flex min-w-0 basis-full items-center gap-3 md:basis-auto">
-        {isOpen
-          ? <ChevronDown className="h-5 w-5 shrink-0 text-blue-700" strokeWidth={2.75} />
-          : <ChevronRight className={`h-5 w-5 shrink-0 ${INK}`} strokeWidth={2.5} />}
-        <span className={`text-[17px] font-semibold leading-snug ${isOpen ? 'text-blue-800' : INK}`}>{task.taskName}</span>
-      </div>
-    ),
+    taskName: <div key="taskName" className="min-w-0">{title(task.taskName)}</div>,
     brand: (
-      <div key="brand" className="min-w-0">
-        <span className="block w-fit max-w-full truncate rounded-full px-4 py-1.5 text-sm font-medium" style={BRAND_CHIP_STYLE} title={task.brand}>
-          {task.brand}
+      <div key="brand" className="flex min-w-0 items-center gap-1.5" title={brands.join('\n')}>
+        <span className="block w-fit max-w-full truncate rounded-full px-4 py-1.5 text-sm font-medium" style={BRAND_CHIP_STYLE}>
+          {brands[0]}
         </span>
+        {brands.length > 1 && <span className="shrink-0 text-xs font-medium text-slate-500">+{brands.length - 1}</span>}
       </div>
     ),
-    category: (
+    category: isCategory ? (
+      <div key="category" className="min-w-0">{title(task.category)}</div>
+    ) : (
       <div key="category" className="min-w-0">
         <span className="block w-fit max-w-full truncate rounded-full px-4 py-1.5 text-sm font-medium" style={getTagChipStyle(task.category)} title={task.category}>
           {task.category}
@@ -208,10 +233,23 @@ function TaskCard({ task, isOpen, onToggle, columns, hiddenColumns }) {
           isOpen ? 'bg-[#f1f6ff]' : 'rounded-xl hover:bg-[#f8faff]'
         }`}
       >
-        {columns.map((col) => cells[col.id])}
+        {/* The open/closed chevron sits in whichever column leads (Project
+            Name or Category); that cell takes its own line below md. */}
+        {columns.map((col, i) =>
+          i === 0 ? (
+            <div key={col.id} className="flex min-w-0 basis-full items-center gap-3 md:basis-auto">
+              {isOpen
+                ? <ChevronDown className="h-5 w-5 shrink-0 text-blue-700" strokeWidth={2.75} />
+                : <ChevronRight className={`h-5 w-5 shrink-0 ${INK}`} strokeWidth={2.5} />}
+              {cells[col.id]}
+            </div>
+          ) : (
+            cells[col.id]
+          ),
+        )}
       </div>
 
-      {isOpen && <DetailPanel task={task} hiddenColumns={hiddenColumns} />}
+      {isOpen && (children ?? <DetailPanel task={task} hiddenColumns={hiddenColumns} />)}
     </div>
   );
 }
@@ -221,37 +259,61 @@ function TaskCard({ task, isOpen, onToggle, columns, hiddenColumns }) {
 // collapses into a single card showing when it ran (Date) and how many times
 // (Work Count). Clicking a card opens it to list every occurrence in
 // chronological order; only one card is open at a time.
-export default function ProjectsCompactView({ records, hiddenColumns = [], columnOrder = [] }) {
+// Default sort per mode: By Task puts the most-repeated tasks first; By
+// Category keeps each category's tasks together. Ties fall back to name order.
+const DEFAULT_SORT = {
+  task: { id: 'workCount', desc: true },
+  category: { id: 'category', desc: false },
+};
+
+// `by`: 'task' is one card per task (Project Name first). 'category' is one
+// card per category in the same pattern - Category takes Project Name's place
+// as the title column, and the project names move into the opened table
+// (a "Project Name" column right after '#').
+export default function ProjectsCompactView({ records, by = 'category', hiddenColumns = [], columnOrder = [] }) {
+  const byCategory = by === 'category';
   const tasks = useMemo(() => buildCompactTasks(records), [records]);
-  // Most-repeated tasks first by default; ties fall back to name order.
-  const [sort, setSort] = useState({ id: 'workCount', desc: true });
+  const [sort, setSort] = useState(() => DEFAULT_SORT[by] ?? DEFAULT_SORT.task);
   const [openKey, setOpenKey] = useState(null);
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: PAGE_SIZE });
 
-  const show = (id) => !hiddenColumns.includes(id);
-  // Shown columns in the user's chosen order (default order if none), with
-  // Project Name always first.
+  // Switching mode starts from that mode's default sort.
+  useEffect(() => {
+    setSort(DEFAULT_SORT[by] ?? DEFAULT_SORT.task);
+  }, [by]);
+
+  // The title column (Project Name, or Category when by category) is always
+  // shown and always first.
+  const lead = byCategory ? 'category' : 'taskName';
+  const show = (id) => id === lead || (!(byCategory && id === 'taskName') && !hiddenColumns.includes(id));
+  // Shown columns in the user's chosen order (default order if none).
   const ordered = columnOrder.length
     ? columnOrder.map((id) => SORT_COLUMNS.find((c) => c.id === id)).filter(Boolean)
     : SORT_COLUMNS;
   const columns = [
-    ...ordered.filter((c) => c.id === 'taskName'),
-    ...ordered.filter((c) => c.id !== 'taskName' && show(c.id)),
+    ...ordered.filter((c) => c.id === lead),
+    ...ordered.filter((c) => c.id !== lead && show(c.id)),
   ];
   // Sorting by a column that's now hidden would reorder cards with nothing
   // showing why, so it falls back to name order until the column returns.
-  const activeSort = show(sort.id) ? sort : { id: 'taskName', desc: false };
+  const activeSort = show(sort.id) ? sort : { id: lead, desc: false };
+
+  // By Category lists one card per category; By Task one per task.
+  const categories = useMemo(() => buildCompactCategories(tasks), [tasks]);
+  const items = byCategory ? categories : tasks;
 
   const sortedTasks = useMemo(() => {
     const compare = SORTERS[activeSort.id];
     const direction = activeSort.desc ? -1 : 1;
-    return [...tasks].sort((a, b) => direction * compare(a, b) || compareText(a.taskName, b.taskName));
-  }, [tasks, activeSort.id, activeSort.desc]);
+    return [...items].sort(
+      (a, b) => direction * compare(a, b) || compareText(a.category, b.category) || compareText(a.taskName, b.taskName),
+    );
+  }, [items, activeSort.id, activeSort.desc]);
 
-  // A new record set (filters changed) or sort order starts back at page 1.
+  // A new record set (filters changed), mode or sort order starts back at page 1.
   useEffect(() => {
     setPagination((prev) => (prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 }));
-  }, [tasks, activeSort.id, activeSort.desc]);
+  }, [items, activeSort.id, activeSort.desc]);
 
   const pageCount = Math.max(1, Math.ceil(sortedTasks.length / pagination.pageSize));
   const pageIndex = Math.min(pagination.pageIndex, pageCount - 1);
@@ -294,7 +356,9 @@ export default function ProjectsCompactView({ records, hiddenColumns = [], colum
         {pageTasks.length ? (
           <div className="flex flex-col gap-2.5">
             {pageTasks.map((task) => (
-              <TaskCard key={task.key} task={task} isOpen={openKey === task.key} onToggle={() => toggleOpen(task.key)} columns={columns} hiddenColumns={hiddenColumns} />
+              <TaskCard key={task.key} task={task} isOpen={openKey === task.key} onToggle={() => toggleOpen(task.key)} columns={columns} hiddenColumns={hiddenColumns} isCategory={byCategory}>
+                {byCategory ? <DetailPanel task={task} hiddenColumns={hiddenColumns} showProjectName /> : undefined}
+              </TaskCard>
             ))}
           </div>
         ) : (
@@ -308,6 +372,7 @@ export default function ProjectsCompactView({ records, hiddenColumns = [], colum
       <div className="flex flex-wrap items-center justify-between gap-2 pt-4 shrink-0">
         <div className="flex items-center gap-3">
           <span className="text-sm text-gray-500">
+            {byCategory && `${categories.length} categor${categories.length === 1 ? 'y' : 'ies'} · `}
             {tasks.length} task{tasks.length === 1 ? '' : 's'} · {records.length} work item{records.length === 1 ? '' : 's'}
           </span>
           <label className="flex items-center gap-1.5 text-sm text-gray-500">

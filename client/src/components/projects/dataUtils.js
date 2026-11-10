@@ -261,6 +261,57 @@ export const buildCompactTasks = (records) => {
   });
 };
 
+// Compact view "By Category": one entry per category (same normalization as
+// tasks, so "Brand Material" and "brand material" are one), holding every
+// task under it (from buildCompactTasks). Its date/frequency/work count roll
+// up those tasks; taskName/brand are the first ones, used only for sorting.
+export const buildCompactCategories = (tasks) => {
+  const groups = new Map();
+  tasks.forEach((task) => {
+    const key = normalizePart(task.category);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(task);
+  });
+
+  const byName = (a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
+  return Array.from(groups.entries()).map(([key, group]) => {
+    const sortedTasks = [...group].sort((a, b) => b.workCount - a.workCount || byName(a.taskName, b.taskName));
+    const periods = Array.from(
+      new Set(group.flatMap((t) => t.occurrences.map(periodOf)).filter((p) => p !== null)),
+    ).sort((a, b) => a - b);
+    const brands = Array.from(new Set(group.map((t) => t.brand).filter(Boolean))).sort(byName);
+    const taskNames = sortedTasks.map((t) => t.taskName);
+    // Every record of every task in the category, chronological (month, then
+    // week no., then project name) - what the opened category card lists.
+    const occurrences = group
+      .flatMap((t) => t.occurrences)
+      .map((record) => ({ record, period: periodOf(record) }))
+      .sort(
+        (a, b) =>
+          (a.period ?? Infinity) - (b.period ?? Infinity) ||
+          weekNumber(a.record) - weekNumber(b.record) ||
+          byName(a.record.taskName, b.record.taskName),
+      )
+      .map((e) => e.record);
+    return {
+      key: `category:${key}`,
+      category: group[0].category,
+      tasks: sortedTasks,
+      occurrences,
+      taskNames,
+      taskName: [...taskNames].sort(byName)[0] ?? '',
+      brands,
+      brand: brands[0] ?? '',
+      frequencies: Array.from(new Set(group.flatMap((t) => t.frequencies)))
+        .sort((a, b) => FREQUENCIES.indexOf(a) - FREQUENCIES.indexOf(b)),
+      workCount: group.reduce((sum, t) => sum + t.workCount, 0),
+      dateLabel: formatFrequency(periods),
+      firstPeriod: periods.length ? periods[0] : null,
+      lastPeriod: periods.length ? periods[periods.length - 1] : null,
+    };
+  });
+};
+
 const compareGroupKeys = (field, a, b) => {
   if (field === 'year') return Number(b) - Number(a);
   if (field === 'month') return monthIndex(a) - monthIndex(b);
