@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Button } from '../ui/button';
 import { ChevronLeft, ChevronRight, ChevronDown, ArrowUp, ArrowDown, ArrowUpDown, CalendarDays, FolderOpen } from 'lucide-react';
 import DepartmentChips from './DepartmentChips';
-import { getTagChipStyle, getStatusChipStyle, getFrequencyChipStyle, getWorkCountColor, FREQUENCIES, BRAND_CHIP_STYLE } from './constants';
+import { getTagChipStyle, getStatusChipStyle, getFrequencyChipStyle, getWorkCountColor, FREQUENCIES, BRAND_CHIP_STYLE, monthIndex } from './constants';
 import { buildCompactTasks, buildCompactCategories } from './dataUtils';
 import ProjectLinks from './ProjectLinks';
 import ProjectDescription from './ProjectDescription';
@@ -85,6 +85,35 @@ const NUMBER_COLUMN_WIDTH = 6;
 const PROJECT_NAME_COLUMN = { id: 'projectName', label: 'Project Name', width: 26 };
 const ALL_DETAIL_COLUMNS = [PROJECT_NAME_COLUMN, ...DETAIL_COLUMNS];
 
+// Opened-table sort keys per column. A null key is "blank" and always sorts
+// last, in either direction. Month/Year sorts by time, Week No. and Links by
+// number, Frequency by its fixed order (Weekly, Monthly, ...), the rest A-Z.
+const numberOrNull = (value) => {
+  const n = parseInt(value, 10);
+  return Number.isNaN(n) ? null : n;
+};
+const textOrNull = (value) => (String(value ?? '').trim() ? String(value).trim() : null);
+const DETAIL_SORT_KEYS = {
+  projectName: (r) => textOrNull(r.taskName),
+  occurrenceBrand: (r) => textOrNull(r.brand),
+  monthYear: (r) => {
+    const year = numberOrNull(r.year);
+    const month = monthIndex(r.month);
+    return year === null ? null : year * 12 + (month < 12 ? month : 0);
+  },
+  weekNo: (r) => numberOrNull(r.weekNo),
+  department: (r) => textOrNull(r.department),
+  status: (r) => textOrNull(r.status),
+  occurrenceFrequency: (r) => {
+    const i = FREQUENCIES.indexOf(r.frequency);
+    return i < 0 ? null : i;
+  },
+  description: (r) => textOrNull(r.description),
+  links: (r) => r.links?.length || null,
+};
+const compareKeys = (a, b) =>
+  typeof a === 'number' && typeof b === 'number' ? a - b : compareText(a, b);
+
 // `detailPrefs` (from Customize view): hiddenColumns, detailOrder (column
 // order; default order if empty) and wideColumns (columns set to Double
 // width - twice their normal share of the table).
@@ -98,6 +127,25 @@ function DetailPanel({ task, detailPrefs, showProjectName = false }) {
     .map((c) => (wideColumns.includes(c.id) ? { ...c, width: c.width * 2 } : c));
   const widthTotal = NUMBER_COLUMN_WIDTH + columns.reduce((sum, c) => sum + c.width, 0);
   const pct = (w) => `${(w / widthTotal) * 100}%`;
+
+  // Click a header to sort by it (ascending), again for descending. Until
+  // then - or if the sorted column gets hidden - rows stay chronological.
+  const [sort, setSort] = useState(null);
+  const activeSort = sort && columns.some((c) => c.id === sort.id) ? sort : null;
+  const rows = useMemo(() => {
+    if (!activeSort) return task.occurrences;
+    const keyOf = DETAIL_SORT_KEYS[activeSort.id];
+    const direction = activeSort.desc ? -1 : 1;
+    return task.occurrences
+      .map((record, index) => ({ record, index, key: keyOf(record) }))
+      .sort((a, b) => {
+        if (a.key === null || b.key === null) return (a.key === null) - (b.key === null) || a.index - b.index;
+        return direction * compareKeys(a.key, b.key) || a.index - b.index;
+      })
+      .map((e) => e.record);
+  }, [task.occurrences, activeSort?.id, activeSort?.desc]); // eslint-disable-line react-hooks/exhaustive-deps
+  const toggleSort = (id) => setSort((prev) => (prev?.id === id ? { id, desc: !prev.desc } : { id, desc: false }));
+
   const cells = {
     projectName: (r) => <span className="font-medium">{r.taskName}</span>,
     occurrenceBrand: (r) =>
@@ -144,11 +192,27 @@ function DetailPanel({ task, detailPrefs, showProjectName = false }) {
           <thead>
             <tr className="border-b border-blue-100 bg-[#f8fbff] text-left">
               <th className="px-4 py-3 font-medium">#</th>
-              {columns.map((c) => <th key={c.id} className="px-4 py-3 font-medium">{c.label}</th>)}
+              {columns.map((c) => {
+                const active = activeSort?.id === c.id;
+                return (
+                  <th key={c.id} className="px-4 py-3 font-medium" aria-sort={active ? (activeSort.desc ? 'descending' : 'ascending') : 'none'}>
+                    <button
+                      type="button"
+                      onClick={() => toggleSort(c.id)}
+                      className="inline-flex select-none items-center gap-1 rounded hover:text-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+                    >
+                      {c.label}
+                      {active && !activeSort.desc && <ArrowUp className="h-3.5 w-3.5 text-blue-700" />}
+                      {active && activeSort.desc && <ArrowDown className="h-3.5 w-3.5 text-blue-700" />}
+                      {!active && <ArrowUpDown className="h-3.5 w-3.5 text-slate-300" />}
+                    </button>
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
-            {task.occurrences.map((r, i) => (
+            {rows.map((r, i) => (
               <tr key={r._id ?? i} className="border-b border-[#eef2f8] last:border-b-0">
                 <td className="px-4 py-2.5 text-slate-400">{i + 1}</td>
                 {columns.map((c) => <td key={c.id} className="px-4 py-2.5">{cells[c.id](r)}</td>)}
