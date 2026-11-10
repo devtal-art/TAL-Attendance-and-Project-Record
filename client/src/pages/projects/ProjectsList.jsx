@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
-import { Download, ListTree, Table2, LayoutList, FolderKanban, Tags, ListChecks, Upload as UploadIcon } from 'lucide-react';
+import { Download, ListTree, Table2, LayoutList, FolderKanban, Tags, ListChecks, CircleCheckBig, Upload as UploadIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '../../components/ui/button';
 import ProjectsFilters from '../../components/projects/ProjectsFilters';
@@ -30,7 +30,12 @@ const COMPACT_MODE_IDLE = 'border-primary/30 bg-white text-primary hover:bg-prim
 const COMPACT_MODES = [
   { id: 'category', label: 'View By Category', Icon: Tags },
   { id: 'task', label: 'View By Task', Icon: ListChecks },
+  { id: 'status', label: 'View By Status', Icon: CircleCheckBig },
 ];
+const COMPACT_HINTS = {
+  category: 'One card per category, listing its tasks',
+  status: 'One card per status, listing its tasks',
+};
 const URL_DEFAULTS = { ...DEFAULT_FILTERS, view: 'table', by: 'category' };
 const validateUrlState = (state) => ({
   ...validateProjectFilters(state),
@@ -209,7 +214,7 @@ export default function ProjectsList() {
             </button>
           </div>
           <span className="text-xs text-slate-400">
-            {viewMode === 'compact' && compactBy === 'category' ? 'One card per category, listing its tasks' : VIEW_HINTS[viewMode]}
+            {(viewMode === 'compact' && COMPACT_HINTS[compactBy]) || VIEW_HINTS[viewMode]}
           </span>
         </div>
 

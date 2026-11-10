@@ -2,8 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Button } from '../ui/button';
 import { ChevronLeft, ChevronRight, ChevronDown, ArrowUp, ArrowDown, ArrowUpDown, CalendarDays, FolderOpen } from 'lucide-react';
 import DepartmentChips from './DepartmentChips';
-import { getTagChipStyle, getStatusChipStyle, getFrequencyChipStyle, getWorkCountColor, FREQUENCIES, BRAND_CHIP_STYLE, monthIndex } from './constants';
-import { buildCompactTasks, buildCompactCategories } from './dataUtils';
+import { getTagChipStyle, getStatusChipStyle, getFrequencyChipStyle, getWorkCountColor, getStatusColor, FREQUENCIES, STATUSES, BRAND_CHIP_STYLE, monthIndex } from './constants';
+import { buildCompactTasks, buildCompactGroups } from './dataUtils';
 import ProjectLinks from './ProjectLinks';
 import ProjectDescription from './ProjectDescription';
 
@@ -12,6 +12,11 @@ const PAGE_SIZE_OPTIONS = [20, 50, 100, 150, 200];
 
 const compareText = (a, b) => String(a ?? '').localeCompare(String(b ?? ''), undefined, { numeric: true, sensitivity: 'base' });
 
+const statusRank = (status) => {
+  const i = STATUSES.indexOf(status);
+  return i < 0 ? STATUSES.length : i;
+};
+
 // Date sorts by when the task was last seen (then first seen), so the most
 // recently active tasks sort together; tasks with no placeable month go last
 // when ascending.
@@ -19,6 +24,9 @@ const SORTERS = {
   taskName: (a, b) => compareText(a.taskName, b.taskName),
   brand: (a, b) => compareText(a.brand, b.brand),
   category: (a, b) => compareText(a.category, b.category),
+  // By Status: the fixed status order (Delivered, Cancelled, Hold, ...), with
+  // "No Status" after them all.
+  status: (a, b) => statusRank(a.status) - statusRank(b.status),
   date: (a, b) =>
     (a.lastPeriod ?? Infinity) - (b.lastPeriod ?? Infinity) ||
     (a.firstPeriod ?? Infinity) - (b.firstPeriod ?? Infinity),
@@ -53,6 +61,7 @@ const COLUMN_TRACKS = {
   taskName: 'minmax(0,26fr)',
   brand: 'minmax(0,17fr)',
   category: 'minmax(0,26fr)',
+  status: 'minmax(0,26fr)',
   date: 'minmax(0,21fr)',
   frequency: 'minmax(0,12fr)',
   workCount: '2.75rem',
@@ -232,17 +241,17 @@ function DetailPanel({ task, detailPrefs, showProjectName = false }) {
 // accent along the left edge. overflow-hidden clips that accent to the
 // card's rounded corners so it follows the card's shape. Collapsed cards
 // stay plain white.
-// `task` is either a task (By Task) or a category entry from
-// buildCompactCategories (`isCategory`, By Category). A category card has the
-// same pattern as a task card: the category is its title (where a task shows
-// its name), followed by the same Brand/Date/Frequency/Work Count cells.
+// `task` is either a task (By Task) or a group from buildCompactGroups
+// (`isGroup`: By Category or By Status). A group card has the same pattern as
+// a task card: the category/status is its title (where a task shows its
+// name), followed by the same Brand/Date/Frequency/Work Count cells.
 // `children` is what opens below the header (defaults to the occurrence table).
-function TaskCard({ task, isOpen, onToggle, columns, detailPrefs, isCategory = false, children }) {
+function TaskCard({ task, isOpen, onToggle, columns, detailPrefs, isGroup = false, children }) {
   const title = (text) => (
     <span className={`text-[17px] font-semibold leading-snug ${isOpen ? 'text-blue-800' : INK}`}>{text}</span>
   );
-  // A category can span several brands: the first one's chip, then "+N".
-  const brands = isCategory ? task.brands : [task.brand];
+  // A group can span several brands: the first one's chip, then "+N".
+  const brands = isGroup ? task.brands : [task.brand];
   const cells = {
     taskName: <div key="taskName" className="min-w-0">{title(task.taskName)}</div>,
     brand: (
@@ -253,7 +262,15 @@ function TaskCard({ task, isOpen, onToggle, columns, detailPrefs, isCategory = f
         {brands.length > 1 && <span className="shrink-0 text-xs font-medium text-slate-500">+{brands.length - 1}</span>}
       </div>
     ),
-    category: isCategory ? (
+    // Only a By Status card leads with this: its status as the title, with a
+    // dot in that status's colour.
+    status: (
+      <div key="status" className="flex min-w-0 items-center gap-2.5">
+        <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: getStatusColor(task.status) }} />
+        {title(task.status)}
+      </div>
+    ),
+    category: isGroup ? (
       <div key="category" className="min-w-0">{title(task.category)}</div>
     ) : (
       <div key="category" className="min-w-0">
@@ -346,44 +363,56 @@ function TaskCard({ task, isOpen, onToggle, columns, detailPrefs, isCategory = f
 const DEFAULT_SORT = {
   task: { id: 'workCount', desc: true },
   category: { id: 'category', desc: false },
+  status: { id: 'status', desc: false },
 };
 
-// `by`: 'task' is one card per task (Project Name first). 'category' is one
-// card per category in the same pattern - Category takes Project Name's place
-// as the title column, and the project names move into the opened table
-// (a "Project Name" column right after '#').
+// Each mode's title column - always shown, always first.
+const LEAD_COLUMNS = {
+  task: SORT_COLUMNS.find((c) => c.id === 'taskName'),
+  category: SORT_COLUMNS.find((c) => c.id === 'category'),
+  status: { id: 'status', label: 'Status' },
+};
+const GROUP_NOUNS = { category: ['category', 'categories'], status: ['status', 'statuses'] };
+
+// `by`: 'task' is one card per task (Project Name first). 'category' and
+// 'status' are one card per category / per status in the same pattern - the
+// category or status takes Project Name's place as the title column, and the
+// project names move into the opened table (a "Project Name" column).
 export default function ProjectsCompactView({ records, by = 'category', hiddenColumns = [], columnOrder = [], detailOrder = [], wideColumns = [] }) {
-  const byCategory = by === 'category';
+  const mode = LEAD_COLUMNS[by] ? by : 'category';
+  const isGroup = mode !== 'task';
   const detailPrefs = { hiddenColumns, detailOrder, wideColumns };
   const tasks = useMemo(() => buildCompactTasks(records), [records]);
-  const [sort, setSort] = useState(() => DEFAULT_SORT[by] ?? DEFAULT_SORT.task);
+  const [sort, setSort] = useState(() => DEFAULT_SORT[mode]);
   const [openKey, setOpenKey] = useState(null);
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: PAGE_SIZE });
 
-  // Switching mode starts from that mode's default sort.
+  // Switching mode starts from that mode's default sort, all cards closed.
   useEffect(() => {
-    setSort(DEFAULT_SORT[by] ?? DEFAULT_SORT.task);
-  }, [by]);
+    setSort(DEFAULT_SORT[mode]);
+    setOpenKey(null);
+  }, [mode]);
 
-  // The title column (Project Name, or Category when by category) is always
-  // shown and always first.
-  const lead = byCategory ? 'category' : 'taskName';
-  const show = (id) => id === lead || (!(byCategory && id === 'taskName') && !hiddenColumns.includes(id));
-  // Shown columns in the user's chosen order (default order if none).
+  // The title column first, then the shown columns in the user's chosen
+  // order (default order if none). A group card has no single project name or
+  // category (By Status), so those columns drop out there.
+  const lead = LEAD_COLUMNS[mode];
   const ordered = columnOrder.length
     ? columnOrder.map((id) => SORT_COLUMNS.find((c) => c.id === id)).filter(Boolean)
     : SORT_COLUMNS;
   const columns = [
-    ...ordered.filter((c) => c.id === lead),
-    ...ordered.filter((c) => c.id !== lead && show(c.id)),
+    lead,
+    ...ordered.filter(
+      (c) => c.id !== lead.id && !(isGroup && (c.id === 'taskName' || c.id === 'category')) && !hiddenColumns.includes(c.id),
+    ),
   ];
   // Sorting by a column that's now hidden would reorder cards with nothing
-  // showing why, so it falls back to name order until the column returns.
-  const activeSort = show(sort.id) ? sort : { id: lead, desc: false };
+  // showing why, so it falls back to the title column until it returns.
+  const activeSort = columns.some((c) => c.id === sort.id) ? sort : { id: lead.id, desc: false };
 
-  // By Category lists one card per category; By Task one per task.
-  const categories = useMemo(() => buildCompactCategories(tasks), [tasks]);
-  const items = byCategory ? categories : tasks;
+  // By Task: one card per task; By Category / By Status: one per group.
+  const groups = useMemo(() => (isGroup ? buildCompactGroups(records, mode) : []), [records, mode, isGroup]);
+  const items = isGroup ? groups : tasks;
 
   const sortedTasks = useMemo(() => {
     const compare = SORTERS[activeSort.id];
@@ -439,8 +468,8 @@ export default function ProjectsCompactView({ records, by = 'category', hiddenCo
         {pageTasks.length ? (
           <div className="flex flex-col gap-2.5">
             {pageTasks.map((task) => (
-              <TaskCard key={task.key} task={task} isOpen={openKey === task.key} onToggle={() => toggleOpen(task.key)} columns={columns} detailPrefs={detailPrefs} isCategory={byCategory}>
-                {byCategory ? <DetailPanel task={task} detailPrefs={detailPrefs} showProjectName /> : undefined}
+              <TaskCard key={task.key} task={task} isOpen={openKey === task.key} onToggle={() => toggleOpen(task.key)} columns={columns} detailPrefs={detailPrefs} isGroup={isGroup}>
+                {isGroup ? <DetailPanel task={task} detailPrefs={detailPrefs} showProjectName /> : undefined}
               </TaskCard>
             ))}
           </div>
@@ -455,7 +484,7 @@ export default function ProjectsCompactView({ records, by = 'category', hiddenCo
       <div className="flex flex-wrap items-center justify-between gap-2 pt-4 shrink-0">
         <div className="flex items-center gap-3">
           <span className="text-sm text-gray-500">
-            {byCategory && `${categories.length} categor${categories.length === 1 ? 'y' : 'ies'} · `}
+            {isGroup && `${groups.length} ${GROUP_NOUNS[mode][groups.length === 1 ? 0 : 1]} · `}
             {tasks.length} task{tasks.length === 1 ? '' : 's'} · {records.length} work item{records.length === 1 ? '' : 's'}
           </span>
           <label className="flex items-center gap-1.5 text-sm text-gray-500">

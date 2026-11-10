@@ -1,4 +1,4 @@
-import { MONTHS, monthIndex, STATUSES, QUARTERS, getQuarter, FREQUENCIES } from './constants';
+import { MONTHS, monthIndex, STATUSES, QUARTERS, getQuarter, FREQUENCIES, NO_STATUS_LABEL } from './constants';
 
 // Inverse of the server parser's Links-cell format (one "Label: https://..."
 // pair per line) - used by the Export button so a re-uploaded export round
@@ -261,50 +261,50 @@ export const buildCompactTasks = (records) => {
   });
 };
 
-// Compact view "By Category": one entry per category (same normalization as
-// tasks, so "Brand Material" and "brand material" are one), holding every
-// task under it (from buildCompactTasks). Its date/frequency/work count roll
-// up those tasks; taskName/brand are the first ones, used only for sorting.
-export const buildCompactCategories = (tasks) => {
+// Compact view "By Category" / "By Status": one entry per group of records,
+// where `field` is 'category' or 'status'. Categories use the same
+// normalization as tasks ("Brand Material" = "brand material"); a record with
+// no status goes under NO_STATUS_LABEL. Grouping is per record, not per task:
+// one task's occurrences can carry different statuses. Each group rolls up
+// its records' brands, date range, frequencies and count; `title` is what its
+// card shows, and `occurrences` (chronological: month, week no., project
+// name) is what the opened card lists. taskName/brand are the first ones,
+// used only for sorting.
+export const buildCompactGroups = (records, field) => {
+  const labelOf = (record) =>
+    field === 'status' ? record.status || NO_STATUS_LABEL : String(record[field] ?? '').trim();
   const groups = new Map();
-  tasks.forEach((task) => {
-    const key = normalizePart(task.category);
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(task);
+  records.forEach((record, index) => {
+    const label = labelOf(record);
+    const key = normalizePart(label);
+    if (!groups.has(key)) groups.set(key, { label, entries: [] });
+    groups.get(key).entries.push({ record, index, period: periodOf(record) });
   });
 
   const byName = (a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
-  return Array.from(groups.entries()).map(([key, group]) => {
-    const sortedTasks = [...group].sort((a, b) => b.workCount - a.workCount || byName(a.taskName, b.taskName));
-    const periods = Array.from(
-      new Set(group.flatMap((t) => t.occurrences.map(periodOf)).filter((p) => p !== null)),
-    ).sort((a, b) => a - b);
-    const brands = Array.from(new Set(group.map((t) => t.brand).filter(Boolean))).sort(byName);
-    const taskNames = sortedTasks.map((t) => t.taskName);
-    // Every record of every task in the category, chronological (month, then
-    // week no., then project name) - what the opened category card lists.
-    const occurrences = group
-      .flatMap((t) => t.occurrences)
-      .map((record) => ({ record, period: periodOf(record) }))
-      .sort(
-        (a, b) =>
-          (a.period ?? Infinity) - (b.period ?? Infinity) ||
-          weekNumber(a.record) - weekNumber(b.record) ||
-          byName(a.record.taskName, b.record.taskName),
-      )
-      .map((e) => e.record);
+  return Array.from(groups.entries()).map(([key, { label, entries }]) => {
+    const sorted = [...entries].sort(
+      (a, b) =>
+        (a.period ?? Infinity) - (b.period ?? Infinity) ||
+        weekNumber(a.record) - weekNumber(b.record) ||
+        byName(a.record.taskName, b.record.taskName) ||
+        a.index - b.index,
+    );
+    const occurrences = sorted.map((e) => e.record);
+    const periods = Array.from(new Set(sorted.map((e) => e.period).filter((p) => p !== null)));
+    const brands = Array.from(new Set(occurrences.map((r) => r.brand).filter(Boolean))).sort(byName);
+    const taskNames = Array.from(new Set(occurrences.map((r) => r.taskName).filter(Boolean))).sort(byName);
     return {
-      key: `category:${key}`,
-      category: group[0].category,
-      tasks: sortedTasks,
+      key: `${field}:${key}`,
+      title: label,
+      [field]: label,
       occurrences,
-      taskNames,
-      taskName: [...taskNames].sort(byName)[0] ?? '',
+      taskName: taskNames[0] ?? '',
       brands,
       brand: brands[0] ?? '',
-      frequencies: Array.from(new Set(group.flatMap((t) => t.frequencies)))
+      frequencies: Array.from(new Set(occurrences.map((r) => r.frequency).filter(Boolean)))
         .sort((a, b) => FREQUENCIES.indexOf(a) - FREQUENCIES.indexOf(b)),
-      workCount: group.reduce((sum, t) => sum + t.workCount, 0),
+      workCount: occurrences.length,
       dateLabel: formatFrequency(periods),
       firstPeriod: periods.length ? periods[0] : null,
       lastPeriod: periods.length ? periods[periods.length - 1] : null,
