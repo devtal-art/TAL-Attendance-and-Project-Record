@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Button } from '../ui/button';
 import { ChevronLeft, ChevronRight, ChevronDown, ArrowUp, ArrowDown, ArrowUpDown, CalendarDays, FolderOpen } from 'lucide-react';
-import { getTagChipStyle, getDepartmentChipStyle, getStatusChipStyle, getFrequencyChipStyle, getWorkCountColor, FREQUENCIES, BRAND_CHIP_STYLE } from './constants';
+import DepartmentChips from './DepartmentChips';
+import { getTagChipStyle, getStatusChipStyle, getFrequencyChipStyle, getWorkCountColor, FREQUENCIES, BRAND_CHIP_STYLE } from './constants';
 import { buildCompactTasks, buildCompactCategories } from './dataUtils';
 import ProjectLinks from './ProjectLinks';
 import ProjectDescription from './ProjectDescription';
@@ -76,14 +77,22 @@ const NUMBER_COLUMN_WIDTH = 6;
 // occurrences. The task's name, brand, category, date range and count are
 // already in the header directly above, so none of that is repeated here.
 // By Category, the card mixes several tasks, so each row also names its
-// project (right after '#'); By Task that's the card's own title.
+// project (by default right after '#'); By Task that's the card's own title,
+// so the column is left out there.
 const PROJECT_NAME_COLUMN = { id: 'projectName', label: 'Project Name', width: 26 };
+const ALL_DETAIL_COLUMNS = [PROJECT_NAME_COLUMN, ...DETAIL_COLUMNS];
 
-function DetailPanel({ task, hiddenColumns, showProjectName = false }) {
-  const columns = [
-    ...(showProjectName ? [PROJECT_NAME_COLUMN] : []),
-    ...DETAIL_COLUMNS.filter((c) => !hiddenColumns.includes(c.id)),
-  ];
+// `detailPrefs` (from Customize view): hiddenColumns, detailOrder (column
+// order; default order if empty) and wideColumns (columns set to Double
+// width - twice their normal share of the table).
+function DetailPanel({ task, detailPrefs, showProjectName = false }) {
+  const { hiddenColumns = [], detailOrder = [], wideColumns = [] } = detailPrefs;
+  const ordered = detailOrder.length
+    ? detailOrder.map((id) => ALL_DETAIL_COLUMNS.find((c) => c.id === id)).filter(Boolean)
+    : ALL_DETAIL_COLUMNS;
+  const columns = ordered
+    .filter((c) => (c.id === 'projectName' ? showProjectName : !hiddenColumns.includes(c.id)))
+    .map((c) => (wideColumns.includes(c.id) ? { ...c, width: c.width * 2 } : c));
   const widthTotal = NUMBER_COLUMN_WIDTH + columns.reduce((sum, c) => sum + c.width, 0);
   const pct = (w) => `${(w / widthTotal) * 100}%`;
   const cells = {
@@ -91,9 +100,7 @@ function DetailPanel({ task, hiddenColumns, showProjectName = false }) {
     monthYear: (r) => <span className="whitespace-nowrap">{r.month} {r.year}</span>,
     weekNo: (r) => r.weekNo || '-',
     department: (r) => (
-      <span className="inline-flex items-center whitespace-nowrap rounded-full px-3.5 py-1 text-sm font-medium" style={getDepartmentChipStyle(r.department)}>
-        {r.department}
-      </span>
+      <DepartmentChips department={r.department} chipClassName="inline-flex items-center whitespace-nowrap rounded-full px-3.5 py-1 text-sm font-medium" />
     ),
     status: (r) =>
       r.status ? (
@@ -155,7 +162,7 @@ function DetailPanel({ task, hiddenColumns, showProjectName = false }) {
 // same pattern as a task card: the category is its title (where a task shows
 // its name), followed by the same Brand/Date/Frequency/Work Count cells.
 // `children` is what opens below the header (defaults to the occurrence table).
-function TaskCard({ task, isOpen, onToggle, columns, hiddenColumns, isCategory = false, children }) {
+function TaskCard({ task, isOpen, onToggle, columns, detailPrefs, isCategory = false, children }) {
   const title = (text) => (
     <span className={`text-[17px] font-semibold leading-snug ${isOpen ? 'text-blue-800' : INK}`}>{text}</span>
   );
@@ -249,7 +256,7 @@ function TaskCard({ task, isOpen, onToggle, columns, hiddenColumns, isCategory =
         )}
       </div>
 
-      {isOpen && (children ?? <DetailPanel task={task} hiddenColumns={hiddenColumns} />)}
+      {isOpen && (children ?? <DetailPanel task={task} detailPrefs={detailPrefs} />)}
     </div>
   );
 }
@@ -270,8 +277,9 @@ const DEFAULT_SORT = {
 // card per category in the same pattern - Category takes Project Name's place
 // as the title column, and the project names move into the opened table
 // (a "Project Name" column right after '#').
-export default function ProjectsCompactView({ records, by = 'category', hiddenColumns = [], columnOrder = [] }) {
+export default function ProjectsCompactView({ records, by = 'category', hiddenColumns = [], columnOrder = [], detailOrder = [], wideColumns = [] }) {
   const byCategory = by === 'category';
+  const detailPrefs = { hiddenColumns, detailOrder, wideColumns };
   const tasks = useMemo(() => buildCompactTasks(records), [records]);
   const [sort, setSort] = useState(() => DEFAULT_SORT[by] ?? DEFAULT_SORT.task);
   const [openKey, setOpenKey] = useState(null);
@@ -356,8 +364,8 @@ export default function ProjectsCompactView({ records, by = 'category', hiddenCo
         {pageTasks.length ? (
           <div className="flex flex-col gap-2.5">
             {pageTasks.map((task) => (
-              <TaskCard key={task.key} task={task} isOpen={openKey === task.key} onToggle={() => toggleOpen(task.key)} columns={columns} hiddenColumns={hiddenColumns} isCategory={byCategory}>
-                {byCategory ? <DetailPanel task={task} hiddenColumns={hiddenColumns} showProjectName /> : undefined}
+              <TaskCard key={task.key} task={task} isOpen={openKey === task.key} onToggle={() => toggleOpen(task.key)} columns={columns} detailPrefs={detailPrefs} isCategory={byCategory}>
+                {byCategory ? <DetailPanel task={task} detailPrefs={detailPrefs} showProjectName /> : undefined}
               </TaskCard>
             ))}
           </div>

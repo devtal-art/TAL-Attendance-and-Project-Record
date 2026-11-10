@@ -26,6 +26,32 @@ function Option({ label, checked, disabled, onChange }) {
   );
 }
 
+// Single / Double width for one opened-card column.
+function WidthToggle({ label, wide, disabled, onChange }) {
+  const option = (value, text) => {
+    const active = wide === value;
+    return (
+      <button
+        type="button"
+        disabled={disabled}
+        aria-pressed={active}
+        onClick={() => onChange(value)}
+        className={`px-2 py-0.5 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-500/50 disabled:cursor-not-allowed ${
+          active ? 'bg-green-600 text-white disabled:bg-gray-200 disabled:text-gray-400' : 'bg-white text-gray-600 hover:bg-gray-50 disabled:text-gray-300'
+        }`}
+      >
+        {text}
+      </button>
+    );
+  };
+  return (
+    <div role="group" aria-label={`${label} width`} title="Column width" className="flex shrink-0 overflow-hidden rounded-md border border-gray-300 divide-x divide-gray-300">
+      {option(false, 'Single')}
+      {option(true, 'Double')}
+    </div>
+  );
+}
+
 // Popover listing every table column and filter with a checkbox. Unchecking
 // one hides it from the screen; Project Name is locked on. The column
 // sections depend on which view is open; the filters are the same for all.
@@ -59,25 +85,34 @@ export default function CustomizeViewMenu({ view, prefs, onToggle, onReset, onMo
         <div
           role="dialog"
           aria-label="Customize view"
-          className="absolute right-0 top-full z-40 mt-2 w-[min(92vw,34rem)] rounded-xl border border-gray-200 bg-white p-5 shadow-xl"
+          className="absolute right-0 top-full z-40 mt-2 w-[min(92vw,38rem)] rounded-xl border border-gray-200 bg-white p-5 shadow-xl"
         >
           <div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
             <div className="space-y-4">
               {VIEW_SECTIONS[view].map((section, sectionIndex) => {
                 // Table and Compact: the first section's columns are listed in
                 // their current order, each with a position number to change.
-                const orderable = prefs.columnOrder.length > 0 && sectionIndex === 0;
+                // Compact's opened-card columns too, plus a Single/Double width.
+                const isDetail = view === 'compact' && sectionIndex === 1;
+                const group = sectionIndex === 0 ? 'columnOrder' : isDetail ? 'detailOrder' : null;
+                const order = group ? prefs[group] : [];
+                const orderable = order.length > 0;
                 const isShown = (item) => item.locked || !prefs.hiddenColumns.includes(item.id);
                 const byId = (id) => section.items.find((i) => i.id === id);
-                const items = orderable ? prefs.columnOrder.map(byId) : section.items;
-                const shownIds = orderable ? prefs.columnOrder.filter((id) => isShown(byId(id))) : [];
-                const pinnedFirst = view === 'compact';
+                const items = orderable ? order.map(byId) : section.items;
+                const shownIds = orderable ? order.filter((id) => isShown(byId(id))) : [];
+                const pinnedFirst = view === 'compact' && group === 'columnOrder';
                 return (
                   <div key={section.title}>
                     <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500">{section.title}</p>
                     {orderable && (
                       <div className="mb-2 text-xs leading-snug text-gray-400">
-                        Use the number to set where a column goes{pinnedFirst ? '. Project Name always stays first.' : '.'}
+                        Use the number to set where a column goes
+                        {pinnedFirst
+                          ? '. Project Name always stays first.'
+                          : isDetail
+                            ? ', and Single/Double for its width. Project Name shows in View By Category.'
+                            : '.'}
                       </div>
                     )}
                     {items.map((item) => {
@@ -92,7 +127,7 @@ export default function CustomizeViewMenu({ view, prefs, onToggle, onReset, onMo
                                 title={pinned ? 'Fixed as the first column' : 'Column position'}
                                 value={position}
                                 disabled={pinned}
-                                onChange={(e) => onMove(item.id, Number(e.target.value))}
+                                onChange={(e) => onMove(item.id, Number(e.target.value), group)}
                                 className="h-7 w-12 shrink-0 cursor-pointer rounded-md border border-gray-300 bg-white px-1.5 text-center text-sm font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-500/40 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400"
                               >
                                 {shownIds.map((_, i) => (
@@ -103,12 +138,24 @@ export default function CustomizeViewMenu({ view, prefs, onToggle, onReset, onMo
                               <span className="w-12 shrink-0 text-center text-sm text-gray-300" title="Hidden">-</span>
                             )
                           )}
-                          <Option
-                            label={item.label}
-                            checked={isShown(item)}
-                            disabled={item.locked}
-                            onChange={() => onToggle('hiddenColumns', item.id)}
-                          />
+                          <div className="min-w-0 flex-1">
+                            <Option
+                              label={item.label}
+                              checked={isShown(item)}
+                              disabled={item.locked}
+                              onChange={() => onToggle('hiddenColumns', item.id)}
+                            />
+                          </div>
+                          {isDetail && (
+                            <WidthToggle
+                              label={item.label}
+                              wide={prefs.wideColumns.includes(item.id)}
+                              disabled={!isShown(item)}
+                              onChange={(wide) => {
+                                if (wide !== prefs.wideColumns.includes(item.id)) onToggle('wideColumns', item.id);
+                              }}
+                            />
+                          )}
                         </div>
                       );
                     })}

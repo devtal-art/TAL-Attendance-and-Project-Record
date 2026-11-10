@@ -61,6 +61,9 @@ export const VIEW_SECTIONS = {
     {
       title: 'Opened card columns',
       items: [
+        // Shown in the opened table only By Category (By Task it's the
+        // card's title); always on there, but its place and width can change.
+        { id: 'projectName', label: 'Project Name', locked: true },
         { id: 'monthYear', label: 'Month/Year' },
         { id: 'weekNo', label: 'Week No.' },
         { id: 'department', label: 'Department' },
@@ -75,12 +78,15 @@ export const VIEW_SECTIONS = {
 
 const VIEWS = Object.keys(VIEW_SECTIONS);
 const STORAGE_KEY = 'tal.projects.customizeView';
-const EMPTY = { hiddenColumns: [], hiddenFilters: [], columnOrder: [] };
+const EMPTY = { hiddenColumns: [], hiddenFilters: [], columnOrder: [], detailOrder: [], wideColumns: [] };
 
 // Table and Compact let the user choose the order of their (first-section)
 // columns. Compact's Project Name is pinned as column 1 and can't move.
 const orderableIds = (view) => (view === 'table' || view === 'compact' ? VIEW_SECTIONS[view][0].items.map((i) => i.id) : []);
 const FIRST_COLUMN = { compact: 'taskName' };
+// Compact's opened-card table: its columns can be reordered too (none pinned)
+// and each set to single or double width.
+const detailIds = (view) => (view === 'compact' ? VIEW_SECTIONS.compact[1].items.map((i) => i.id) : []);
 
 const pick = (value, allowed) => (Array.isArray(value) ? allowed.filter((id) => value.includes(id)) : []);
 
@@ -88,21 +94,25 @@ const hideable = (view) =>
   VIEW_SECTIONS[view].flatMap((s) => s.items).filter((i) => !i.locked).map((i) => i.id);
 
 // A stored order is kept only for ids that exist, each once; any column it
-// does not mention follows in its default place, so a new column never
-// vanishes. Empty (never customised) gives the default order.
-const sanitizeOrder = (view, raw) => {
-  const ids = orderableIds(view);
+// does not mention is put back at its default position, so a new column
+// never vanishes (and e.g. Project Name lands first, not last, in an order
+// saved before it existed). Empty (never customised) gives the default order.
+const sanitizeOrder = (ids, raw, first) => {
   if (ids.length === 0) return [];
   const given = Array.isArray(raw) ? raw.filter((id, i) => ids.includes(id) && raw.indexOf(id) === i) : [];
-  const order = [...given, ...ids.filter((id) => !given.includes(id))];
-  const first = FIRST_COLUMN[view];
+  const order = [...given];
+  ids.forEach((id, index) => {
+    if (!order.includes(id)) order.splice(Math.min(index, order.length), 0, id);
+  });
   return first ? [first, ...order.filter((id) => id !== first)] : order;
 };
 
 const sanitizeView = (view, raw) => ({
   hiddenColumns: pick(raw?.hiddenColumns, hideable(view)),
   hiddenFilters: pick(raw?.hiddenFilters, FILTER_FIELDS.map((f) => f.id)),
-  columnOrder: sanitizeOrder(view, raw?.columnOrder),
+  columnOrder: sanitizeOrder(orderableIds(view), raw?.columnOrder, FIRST_COLUMN[view]),
+  detailOrder: sanitizeOrder(detailIds(view), raw?.detailOrder),
+  wideColumns: pick(raw?.wideColumns, detailIds(view)),
 });
 
 // Whatever is stored (an older build, hand-edited, corrupt) is reduced to ids
@@ -159,19 +169,21 @@ export default function useProjectViewPrefs(view) {
   const reset = useCallback(() => update(() => EMPTY), [update]);
 
   // Puts column `id` at `position` (1-based) among the columns currently
-  // shown; the ones in between shift by one. Hidden columns keep their slots
-  // in the order, so they come back where they were.
+  // shown in `group` (the card columns' 'columnOrder' or the opened card's
+  // 'detailOrder'); the ones in between shift by one. Hidden columns keep
+  // their slots in the order, so they come back where they were.
   const move = useCallback(
-    (id, position) =>
+    (id, position, group = 'columnOrder') =>
       update((prev) => {
-        if (id === FIRST_COLUMN[view]) return prev;
-        const isShown = (col) => col === FIRST_COLUMN[view] || !prev.hiddenColumns.includes(col);
-        const shown = prev.columnOrder.filter(isShown).filter((col) => col !== id);
-        const floor = FIRST_COLUMN[view] ? 2 : 1;
+        const first = group === 'columnOrder' ? FIRST_COLUMN[view] : undefined;
+        if (id === first) return prev;
+        const isShown = (col) => col === first || !prev.hiddenColumns.includes(col);
+        const shown = prev[group].filter(isShown).filter((col) => col !== id);
+        const floor = first ? 2 : 1;
         const index = Math.min(Math.max(position, floor), shown.length + 1) - 1;
         shown.splice(index, 0, id);
         let next = 0;
-        return { ...prev, columnOrder: prev.columnOrder.map((col) => (isShown(col) || col === id ? shown[next++] : col)) };
+        return { ...prev, [group]: prev[group].map((col) => (isShown(col) || col === id ? shown[next++] : col)) };
       }),
     [update, view],
   );

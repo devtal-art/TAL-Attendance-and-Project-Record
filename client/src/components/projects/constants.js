@@ -204,6 +204,12 @@ export const getWorkCountColor = (count) => {
 
 // Light tinted background + solid text, both derived from the same color, so
 // department chips read as a coherent color-coded set instead of flat gray.
+// A combined department ("Des,Dev", "Des + Dev", "Des & Dev", "Des/Dev") as
+// its separate parts, each shown as its own chip in the listings. Empty
+// parts and repeats are dropped; a single department comes back as [it].
+export const splitDepartments = (department) =>
+  Array.from(new Set(String(department ?? '').split(/\s*[,+&/]\s*/).map((d) => d.trim()).filter(Boolean)));
+
 export const getDepartmentChipStyle = (department) => {
   const color = getDepartmentColor(department);
   return { backgroundColor: `${color}1f`, color };

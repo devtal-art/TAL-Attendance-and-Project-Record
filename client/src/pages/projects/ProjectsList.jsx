@@ -240,7 +240,7 @@ export default function ProjectsList() {
       {viewMode === 'compact' ? (
         // Like the table view, not clamped to the viewport - the page scrolls.
         <div className="p-6 pt-4">
-          <ProjectsCompactView records={filteredProjects} by={compactBy} hiddenColumns={prefs.hiddenColumns} columnOrder={prefs.columnOrder} />
+          <ProjectsCompactView records={filteredProjects} by={compactBy} hiddenColumns={prefs.hiddenColumns} columnOrder={prefs.columnOrder} detailOrder={prefs.detailOrder} wideColumns={prefs.wideColumns} />
         </div>
       ) : viewMode === 'table' ? (
         // Table view isn't clamped to the viewport: ProjectsSimpleTable

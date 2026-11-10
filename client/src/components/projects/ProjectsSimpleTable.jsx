@@ -9,7 +9,8 @@ import {
 import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Button } from '../ui/button';
 import { ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, FolderOpen } from 'lucide-react';
-import { getTagChipStyle, getDepartmentChipStyle, getStatusChipStyle, getFrequencyChipStyle, BRAND_CHIP_STYLE, FREQUENCIES, monthIndex } from './constants';
+import DepartmentChips from './DepartmentChips';
+import { getTagChipStyle, getStatusChipStyle, getFrequencyChipStyle, BRAND_CHIP_STYLE, FREQUENCIES, monthIndex } from './constants';
 import ProjectLinks from './ProjectLinks';
 
 const PAGE_SIZE = 50;
@@ -64,9 +65,7 @@ export default function ProjectsSimpleTable({ records, hiddenColumns = [], colum
         header: 'Department',
         sortingFn: 'alphanumeric',
         cell: (info) => (
-          <span className="inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium" style={getDepartmentChipStyle(info.getValue())}>
-            {info.getValue()}
-          </span>
+          <DepartmentChips department={info.getValue()} chipClassName="inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium" />
         ),
       },
       {
