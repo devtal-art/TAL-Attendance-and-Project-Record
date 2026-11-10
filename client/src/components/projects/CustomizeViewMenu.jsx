@@ -85,9 +85,11 @@ export default function CustomizeViewMenu({ view, prefs, onToggle, onReset, onMo
         <div
           role="dialog"
           aria-label="Customize view"
-          className="absolute right-0 top-full z-40 mt-2 w-[min(92vw,38rem)] rounded-xl border border-gray-200 bg-white p-5 shadow-xl"
+          className="absolute right-0 top-full z-40 mt-2 w-[min(92vw,44rem)] rounded-xl border border-gray-200 bg-white p-5 shadow-xl"
         >
-          <div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
+          {/* Columns side gets more room: its rows carry a position number and,
+              for opened-card columns, a Single/Double switch beside the name. */}
+          <div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-[3fr_2fr]">
             <div className="space-y-4">
               {VIEW_SECTIONS[view].map((section, sectionIndex) => {
                 // Table and Compact: the first section's columns are listed in
@@ -101,23 +103,24 @@ export default function CustomizeViewMenu({ view, prefs, onToggle, onReset, onMo
                 const byId = (id) => section.items.find((i) => i.id === id);
                 const items = orderable ? order.map(byId) : section.items;
                 const shownIds = orderable ? order.filter((id) => isShown(byId(id))) : [];
-                const pinnedFirst = view === 'compact' && group === 'columnOrder';
+                const pinnedFirst = view === 'compact' && orderable;
+                const pinnedId = group === 'columnOrder' ? 'taskName' : 'projectName';
                 return (
                   <div key={section.title}>
                     <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500">{section.title}</p>
                     {orderable && (
                       <div className="mb-2 text-xs leading-snug text-gray-400">
                         Use the number to set where a column goes
-                        {pinnedFirst
-                          ? '. Project Name always stays first.'
-                          : isDetail
-                            ? ', and Single/Double for its width. Project Name shows in View By Category.'
+                        {isDetail
+                          ? ', and Single/Double for its width. Project Name always stays first (shown in View By Category).'
+                          : pinnedFirst
+                            ? '. Project Name always stays first.'
                             : '.'}
                       </div>
                     )}
                     {items.map((item) => {
                       const position = shownIds.indexOf(item.id) + 1;
-                      const pinned = pinnedFirst && item.id === 'taskName';
+                      const pinned = pinnedFirst && item.id === pinnedId;
                       return (
                         <div key={item.id} className="flex items-center gap-2.5">
                           {orderable && (

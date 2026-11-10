@@ -64,6 +64,8 @@ export const VIEW_SECTIONS = {
         // Shown in the opened table only By Category (By Task it's the
         // card's title); always on there, but its place and width can change.
         { id: 'projectName', label: 'Project Name', locked: true },
+        // Own id (not 'brand') so it toggles apart from the card's Brand column.
+        { id: 'occurrenceBrand', label: 'Brand' },
         { id: 'monthYear', label: 'Month/Year' },
         { id: 'weekNo', label: 'Week No.' },
         { id: 'department', label: 'Department' },
@@ -84,6 +86,8 @@ const EMPTY = { hiddenColumns: [], hiddenFilters: [], columnOrder: [], detailOrd
 // columns. Compact's Project Name is pinned as column 1 and can't move.
 const orderableIds = (view) => (view === 'table' || view === 'compact' ? VIEW_SECTIONS[view][0].items.map((i) => i.id) : []);
 const FIRST_COLUMN = { compact: 'taskName' };
+// Same for the opened-card table: Project Name stays right after '#'.
+const FIRST_DETAIL_COLUMN = { compact: 'projectName' };
 // Compact's opened-card table: its columns can be reordered too (none pinned)
 // and each set to single or double width.
 const detailIds = (view) => (view === 'compact' ? VIEW_SECTIONS.compact[1].items.map((i) => i.id) : []);
@@ -111,7 +115,7 @@ const sanitizeView = (view, raw) => ({
   hiddenColumns: pick(raw?.hiddenColumns, hideable(view)),
   hiddenFilters: pick(raw?.hiddenFilters, FILTER_FIELDS.map((f) => f.id)),
   columnOrder: sanitizeOrder(orderableIds(view), raw?.columnOrder, FIRST_COLUMN[view]),
-  detailOrder: sanitizeOrder(detailIds(view), raw?.detailOrder),
+  detailOrder: sanitizeOrder(detailIds(view), raw?.detailOrder, FIRST_DETAIL_COLUMN[view]),
   wideColumns: pick(raw?.wideColumns, detailIds(view)),
 });
 
@@ -175,7 +179,7 @@ export default function useProjectViewPrefs(view) {
   const move = useCallback(
     (id, position, group = 'columnOrder') =>
       update((prev) => {
-        const first = group === 'columnOrder' ? FIRST_COLUMN[view] : undefined;
+        const first = (group === 'columnOrder' ? FIRST_COLUMN : FIRST_DETAIL_COLUMN)[view];
         if (id === first) return prev;
         const isShown = (col) => col === first || !prev.hiddenColumns.includes(col);
         const shown = prev[group].filter(isShown).filter((col) => col !== id);

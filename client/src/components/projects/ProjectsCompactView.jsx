@@ -61,6 +61,9 @@ const gridColumns = (columns) => columns.map((c) => COLUMN_TRACKS[c.id]).join(' 
 
 // Opened-card table columns with their relative widths; '#' is always shown.
 const DETAIL_COLUMNS = [
+  // Own id (not 'brand'), like Frequency below: the card header's Brand
+  // column toggles independently.
+  { id: 'occurrenceBrand', label: 'Brand', width: 20 },
   { id: 'monthYear', label: 'Month/Year', width: 18 },
   { id: 'weekNo', label: 'Week No.', width: 17 },
   { id: 'department', label: 'Department', width: 22 },
@@ -97,6 +100,14 @@ function DetailPanel({ task, detailPrefs, showProjectName = false }) {
   const pct = (w) => `${(w / widthTotal) * 100}%`;
   const cells = {
     projectName: (r) => <span className="font-medium">{r.taskName}</span>,
+    occurrenceBrand: (r) =>
+      r.brand ? (
+        <span className="inline-flex max-w-full items-center truncate whitespace-nowrap rounded-full px-3.5 py-1 text-sm font-medium" style={BRAND_CHIP_STYLE} title={r.brand}>
+          {r.brand}
+        </span>
+      ) : (
+        <span className="text-slate-400">-</span>
+      ),
     monthYear: (r) => <span className="whitespace-nowrap">{r.month} {r.year}</span>,
     weekNo: (r) => r.weekNo || '-',
     department: (r) => (
@@ -125,7 +136,7 @@ function DetailPanel({ task, detailPrefs, showProjectName = false }) {
   return (
     <div className="bg-[#f1f6ff] px-4 pb-4 pt-1 sm:px-5">
       <div className="overflow-auto rounded-xl border border-blue-100 bg-white">
-        <table className={`w-full text-sm ${columns.length > 7 ? 'min-w-[1040px]' : columns.length > 6 ? 'min-w-[880px]' : columns.length > 4 ? 'min-w-[760px]' : columns.length > 3 ? 'min-w-[560px]' : ''} ${INK}`}>
+        <table className={`w-full text-sm ${columns.length > 8 ? 'min-w-[1180px]' : columns.length > 7 ? 'min-w-[1040px]' : columns.length > 6 ? 'min-w-[880px]' : columns.length > 4 ? 'min-w-[760px]' : columns.length > 3 ? 'min-w-[560px]' : ''} ${INK}`}>
           <colgroup>
             <col style={{ width: pct(NUMBER_COLUMN_WIDTH) }} />
             {columns.map((c) => <col key={c.id} style={{ width: pct(c.width) }} />)}
