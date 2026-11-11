@@ -80,7 +80,7 @@ function BrandPanel() {
               <div>
                 <p className="text-[11px] text-slate-500 leading-none mb-1">Attendance</p>
                 <p className="text-sm font-semibold leading-none">Records synced</p>
-              </div>
+              </div>  
             </div>
           </div>
 
