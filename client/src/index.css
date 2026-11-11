@@ -118,3 +118,56 @@
     }
   }
 }
+
+/* ---------- Login page animations ---------- */
+@keyframes login-fade-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes login-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes login-blob {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%      { transform: translate(40px, -30px) scale(1.1); }
+  66%      { transform: translate(-30px, 25px) scale(0.92); }
+}
+@keyframes login-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-10px); }
+}
+@keyframes login-bar {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
+@keyframes login-shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-8px); }
+  40%, 80% { transform: translateX(8px); }
+}
+@keyframes login-pop {
+  0%   { transform: scale(0.4); opacity: 0; }
+  70%  { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1); }
+}
+@keyframes login-shimmer {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(100%); }
+}
+
+.login-fade-up { animation: login-fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.login-fade-in { animation: login-fade-in 0.8s ease-out both; }
+.login-blob    { animation: login-blob 18s ease-in-out infinite; }
+.login-float   { animation: login-float 6s ease-in-out infinite; }
+.login-bar     { transform-origin: bottom; animation: login-bar 0.9s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.login-shake   { animation: login-shake 0.45s ease-in-out; }
+.login-pop     { animation: login-pop 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.login-shimmer { animation: login-shimmer 1.4s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .login-fade-up, .login-fade-in, .login-blob, .login-float,
+  .login-bar, .login-shake, .login-pop, .login-shimmer {
+    animation: none !important;
+  }
+}

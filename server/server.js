@@ -2,9 +2,18 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const bcrypt = require('bcryptjs');
 const apiRoutes = require('./routes/api.routes');
 const projectsRoutes = require('./routes/projects.routes');
+const authRoutes = require('./routes/auth.routes');
+const { requireAuth } = require('./middleware/auth');
+const User = require('./models/User');
 const fs = require('fs');
+
+if (!process.env.JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET is not set in .env');
+  process.exit(1);
+}
 
 const app = express();
 
@@ -16,17 +25,17 @@ const allowedOrigins = (process.env.CLIENT_URL || '')
   .split(',')
   .map((origin) => origin.trim())
   .filter(Boolean);
-app.use(cors(allowedOrigins.length ? { origin: allowedOrigins } : undefined));
+app.use(cors({
+  ...(allowedOrigins.length ? { origin: allowedOrigins } : {}),
+  // Lets the client read the filename of Excel exports downloaded via XHR.
+  exposedHeaders: ['Content-Disposition'],
+}));
 app.use(express.json());
 
 // Ensure uploads directory exists
 if (!fs.existsSync('uploads')) {
   fs.mkdirSync('uploads');
 }
-
-// Routes
-app.use('/api', apiRoutes);
-app.use('/api/projects', projectsRoutes);
 
 // Health check - no auth, no DB access, no side effects. Used by Render (or
 // any uptime/monitoring check) to confirm the process is up and responsive.
@@ -38,6 +47,34 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
   });
 });
+
+// Public auth endpoints (login). Everything registered after the requireAuth
+// line below needs a valid login token.
+app.use('/api/auth', authRoutes);
+
+// Protected routes
+app.use('/api', requireAuth);
+app.use('/api', apiRoutes);
+app.use('/api/projects', projectsRoutes);
+
+// Creates the first admin from ADMIN_USERNAME / ADMIN_PASSWORD when the users
+// collection is empty, so a fresh deployment always has a way in.
+async function seedAdmin() {
+  if ((await User.estimatedDocumentCount()) > 0) return;
+  const username = (process.env.ADMIN_USERNAME || '').trim().toLowerCase();
+  const password = process.env.ADMIN_PASSWORD || '';
+  if (!username || !password) {
+    console.warn('⚠️  No users exist. Set ADMIN_USERNAME and ADMIN_PASSWORD in .env (or run scripts/createUser.js) so someone can log in.');
+    return;
+  }
+  await User.create({
+    username,
+    name: 'Administrator',
+    role: 'admin',
+    passwordHash: await bcrypt.hash(password, 12),
+  });
+  console.log(`👤 Created initial admin user "${username}"`);
+}
 
 // Database Connection
 const mongoUri = process.env.MONGODB_URI;
@@ -54,8 +91,9 @@ const mongoOptions = {
 
 console.log('Connecting to MongoDB Atlas...');
 mongoose.connect(mongoUri, mongoOptions)
-  .then(() => {
+  .then(async () => {
     console.log('✅ Connected to MongoDB Atlas');
+    await seedAdmin();
     const PORT = process.env.PORT || 5000;
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
