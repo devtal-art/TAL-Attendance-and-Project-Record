@@ -10,8 +10,12 @@ const { requireAuth } = require('./middleware/auth');
 const User = require('./models/User');
 const fs = require('fs');
 
-if (!process.env.JWT_SECRET) {
-  console.error('FATAL: JWT_SECRET is not set in .env');
+// Login is OFF unless AUTH_ENABLED=true. When off, the API is open (no token
+// required) and no admin is seeded. Must match VITE_AUTH_ENABLED on the client.
+const AUTH_ENABLED = process.env.AUTH_ENABLED === 'true';
+
+if (AUTH_ENABLED && !process.env.JWT_SECRET) {
+  console.error('FATAL: AUTH_ENABLED=true but JWT_SECRET is not set in .env');
   process.exit(1);
 }
 
@@ -48,12 +52,14 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Public auth endpoints (login). Everything registered after the requireAuth
-// line below needs a valid login token.
-app.use('/api/auth', authRoutes);
+// Public auth endpoints (login). When auth is enabled, everything registered
+// after the requireAuth line below needs a valid login token.
+if (AUTH_ENABLED) {
+  app.use('/api/auth', authRoutes);
+  app.use('/api', requireAuth);
+}
 
-// Protected routes
-app.use('/api', requireAuth);
+// App routes
 app.use('/api', apiRoutes);
 app.use('/api/projects', projectsRoutes);
 
@@ -93,7 +99,8 @@ console.log('Connecting to MongoDB Atlas...');
 mongoose.connect(mongoUri, mongoOptions)
   .then(async () => {
     console.log('✅ Connected to MongoDB Atlas');
-    await seedAdmin();
+    if (AUTH_ENABLED) await seedAdmin();
+    console.log(`🔐 Login ${AUTH_ENABLED ? 'ENABLED' : 'DISABLED (API is open)'}`);
     const PORT = process.env.PORT || 5000;
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);

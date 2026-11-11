@@ -15,6 +15,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { AUTH_ENABLED } from '../lib/auth';
 
 // Stagger helper for the entrance animation.
 const delay = (ms) => ({ animationDelay: `${ms}ms` });
@@ -147,6 +148,9 @@ export default function Login() {
 
   // Already logged in (e.g. navigated to /login manually) - skip the form,
   // but not while the success animation is playing.
+  // Login disabled - there is nothing to sign in to.
+  if (!AUTH_ENABLED) return <Navigate to="/" replace />;
+
   if (!isChecking && isAuthenticated && phase === 'idle') {
     return <Navigate to={redirectTo} replace />;
   }
