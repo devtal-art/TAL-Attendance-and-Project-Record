@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
-import { Download, ListTree, Table2, LayoutList, FolderKanban, Tags, ListChecks, CircleCheckBig, Upload as UploadIcon } from 'lucide-react';
+import { Download, ListTree, Table2, LayoutList, FolderKanban, Tags, ListChecks, CircleCheckBig, ChevronsUpDown, ChevronsDownUp, Upload as UploadIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '../../components/ui/button';
 import ProjectsFilters from '../../components/projects/ProjectsFilters';
@@ -57,8 +57,18 @@ export default function ProjectsList() {
   }, [urlState]);
   const compactBy = urlState.by;
   const setFilters = (next) => setUrlState((prev) => ({ ...next, view: prev.view, by: prev.by }));
-  const setViewMode = (view) => setUrlState((prev) => ({ ...prev, view }));
-  const setCompactBy = (by) => setUrlState((prev) => ({ ...prev, by }));
+  const setViewMode = (view) => {
+    setExpandCommand(null);
+    setUrlState((prev) => ({ ...prev, view }));
+  };
+  const setCompactBy = (by) => {
+    setExpandCommand(null);
+    setUrlState((prev) => ({ ...prev, by }));
+  };
+  // Compact view's Expand all / Collapse all - a fresh id per click so the
+  // same action can be repeated after toggling cards by hand.
+  const [expandCommand, setExpandCommand] = useState(null);
+  const sendExpand = (action) => setExpandCommand({ action, id: Date.now() });
 
   useEffect(() => {
     fetchProjects();
@@ -238,6 +248,22 @@ export default function ProjectsList() {
                 </button>
               );
             })}
+            <div className="ml-auto inline-flex items-center gap-0.5 rounded-md border border-gray-200 bg-white p-0.5">
+              <button
+                type="button"
+                onClick={() => sendExpand('expand')}
+                className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              >
+                <ChevronsUpDown className="w-3.5 h-3.5" aria-hidden="true" /> Expand all
+              </button>
+              <button
+                type="button"
+                onClick={() => sendExpand('collapse')}
+                className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              >
+                <ChevronsDownUp className="w-3.5 h-3.5" aria-hidden="true" /> Collapse all
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -245,7 +271,7 @@ export default function ProjectsList() {
       {viewMode === 'compact' ? (
         // Like the table view, not clamped to the viewport - the page scrolls.
         <div className="p-6 pt-4">
-          <ProjectsCompactView records={filteredProjects} by={compactBy} hiddenColumns={prefs.hiddenColumns} columnOrder={prefs.columnOrder} detailOrder={prefs.detailOrder} wideColumns={prefs.wideColumns} />
+          <ProjectsCompactView records={filteredProjects} by={compactBy} hiddenColumns={prefs.hiddenColumns} columnOrder={prefs.columnOrder} detailOrder={prefs.detailOrder} wideColumns={prefs.wideColumns} expandCommand={expandCommand} />
         </div>
       ) : viewMode === 'table' ? (
         // Table view isn't clamped to the viewport: ProjectsSimpleTable

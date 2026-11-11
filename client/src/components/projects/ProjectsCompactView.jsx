@@ -378,19 +378,21 @@ const GROUP_NOUNS = { category: ['category', 'categories'], status: ['status', '
 // 'status' are one card per category / per status in the same pattern - the
 // category or status takes Project Name's place as the title column, and the
 // project names move into the opened table (a "Project Name" column).
-export default function ProjectsCompactView({ records, by = 'category', hiddenColumns = [], columnOrder = [], detailOrder = [], wideColumns = [] }) {
+// expandCommand: { action: 'expand' | 'collapse', id } sent by the page's
+// Expand all / Collapse all buttons; a new id re-applies the same action.
+export default function ProjectsCompactView({ records, by = 'category', hiddenColumns = [], columnOrder = [], detailOrder = [], wideColumns = [], expandCommand = null }) {
   const mode = LEAD_COLUMNS[by] ? by : 'category';
   const isGroup = mode !== 'task';
   const detailPrefs = { hiddenColumns, detailOrder, wideColumns };
   const tasks = useMemo(() => buildCompactTasks(records), [records]);
   const [sort, setSort] = useState(() => DEFAULT_SORT[mode]);
-  const [openKey, setOpenKey] = useState(null);
+  const [openKeys, setOpenKeys] = useState(() => new Set());
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: PAGE_SIZE });
 
   // Switching mode starts from that mode's default sort, all cards closed.
   useEffect(() => {
     setSort(DEFAULT_SORT[mode]);
-    setOpenKey(null);
+    setOpenKeys(new Set());
   }, [mode]);
 
   // The title column first, then the shown columns in the user's chosen
@@ -434,7 +436,21 @@ export default function ProjectsCompactView({ records, by = 'category', hiddenCo
   const toggleSort = (id) =>
     setSort((prev) => (prev.id === id ? { id, desc: !prev.desc } : { id, desc: false }));
 
-  const toggleOpen = (key) => setOpenKey((prev) => (prev === key ? null : key));
+  const toggleOpen = (key) =>
+    setOpenKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+  // Expand all opens every card (on every page, so paging keeps them open);
+  // Collapse all closes them. Only reacts to a new command, not to filtering.
+  useEffect(() => {
+    if (!expandCommand) return;
+    setOpenKeys(expandCommand.action === 'expand' ? new Set(items.map((t) => t.key)) : new Set());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expandCommand]);
 
   return (
     <div className="flex flex-col">
@@ -468,7 +484,7 @@ export default function ProjectsCompactView({ records, by = 'category', hiddenCo
         {pageTasks.length ? (
           <div className="flex flex-col gap-2.5">
             {pageTasks.map((task) => (
-              <TaskCard key={task.key} task={task} isOpen={openKey === task.key} onToggle={() => toggleOpen(task.key)} columns={columns} detailPrefs={detailPrefs} isGroup={isGroup}>
+              <TaskCard key={task.key} task={task} isOpen={openKeys.has(task.key)} onToggle={() => toggleOpen(task.key)} columns={columns} detailPrefs={detailPrefs} isGroup={isGroup}>
                 {isGroup ? <DetailPanel task={task} detailPrefs={detailPrefs} showProjectName /> : undefined}
               </TaskCard>
             ))}
