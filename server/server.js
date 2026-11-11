@@ -8,14 +8,11 @@ const projectsRoutes = require('./routes/projects.routes');
 const authRoutes = require('./routes/auth.routes');
 const { requireAuth } = require('./middleware/auth');
 const User = require('./models/User');
+const { parseAllowedOrigins } = require('./utils/corsOrigins');
 const fs = require('fs');
 
-// Login is OFF unless AUTH_ENABLED=true. When off, the API is open (no token
-// required) and no admin is seeded. Must match VITE_AUTH_ENABLED on the client.
-const AUTH_ENABLED = process.env.AUTH_ENABLED === 'true';
-
-if (AUTH_ENABLED && !process.env.JWT_SECRET) {
-  console.error('FATAL: AUTH_ENABLED=true but JWT_SECRET is not set in .env');
+if (!process.env.JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET is not set in .env');
   process.exit(1);
 }
 
@@ -24,13 +21,11 @@ const app = express();
 // Middleware
 // CLIENT_URL restricts CORS to specific origin(s) (comma-separated) once set,
 // e.g. the deployed Vercel URL. Left unset, all origins are allowed - keeps
-// local dev and any interim deployment working out of the box.
-const allowedOrigins = (process.env.CLIENT_URL || '')
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean);
+// local dev and any interim deployment working out of the box. Entries may use
+// '*' as a wildcard (see utils/corsOrigins.js).
+const originMatchers = parseAllowedOrigins(process.env.CLIENT_URL);
 app.use(cors({
-  ...(allowedOrigins.length ? { origin: allowedOrigins } : {}),
+  ...(originMatchers.length ? { origin: originMatchers } : {}),
   // Lets the client read the filename of Excel exports downloaded via XHR.
   exposedHeaders: ['Content-Disposition'],
 }));
@@ -52,14 +47,12 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Public auth endpoints (login). When auth is enabled, everything registered
-// after the requireAuth line below needs a valid login token.
-if (AUTH_ENABLED) {
-  app.use('/api/auth', authRoutes);
-  app.use('/api', requireAuth);
-}
+// Public auth endpoints (login). Everything registered after the requireAuth
+// line below needs a valid login token.
+app.use('/api/auth', authRoutes);
 
-// App routes
+// Protected routes
+app.use('/api', requireAuth);
 app.use('/api', apiRoutes);
 app.use('/api/projects', projectsRoutes);
 
@@ -99,8 +92,7 @@ console.log('Connecting to MongoDB Atlas...');
 mongoose.connect(mongoUri, mongoOptions)
   .then(async () => {
     console.log('✅ Connected to MongoDB Atlas');
-    if (AUTH_ENABLED) await seedAdmin();
-    console.log(`🔐 Login ${AUTH_ENABLED ? 'ENABLED' : 'DISABLED (API is open)'}`);
+    await seedAdmin();
     const PORT = process.env.PORT || 5000;
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);

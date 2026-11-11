@@ -2,10 +2,6 @@ import axios from 'axios';
 
 export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-// Login is OFF unless VITE_AUTH_ENABLED=true at build time. Must match the
-// server's AUTH_ENABLED setting.
-export const AUTH_ENABLED = import.meta.env.VITE_AUTH_ENABLED === 'true';
-
 const TOKEN_KEY = 'tal_auth_token';
 
 export const getToken = () => {

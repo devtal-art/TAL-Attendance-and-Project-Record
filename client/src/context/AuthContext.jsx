@@ -1,12 +1,12 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { AUTH_ENABLED, fetchMe, getToken, loginRequest, setToken, setUnauthorizedHandler } from '../lib/auth';
+import { fetchMe, getToken, loginRequest, setToken, setUnauthorizedHandler } from '../lib/auth';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   // 'checking' while we verify a stored token on first load, then 'ready'.
-  const [status, setStatus] = useState(AUTH_ENABLED && getToken() ? 'checking' : 'ready');
+  const [status, setStatus] = useState(getToken() ? 'checking' : 'ready');
 
   const logout = useCallback(() => {
     setToken(null);
@@ -18,7 +18,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    if (!AUTH_ENABLED || !getToken()) return;
+    if (!getToken()) return;
     fetchMe()
       .then(setUser)
       .catch(() => logout())

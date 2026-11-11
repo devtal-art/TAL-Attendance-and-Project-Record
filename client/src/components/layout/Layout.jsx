@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, Upload, History, FileSpreadsheet, FolderKanban, Menu, X, UserCircle } from 'lucide-react';
+import { LayoutDashboard, Users, Upload, History, FileSpreadsheet, FolderKanban, Menu, X, LogOut, UserCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { AUTH_ENABLED } from '../../lib/auth';
 
 // Per-module color accents - purely presentational (panel background, label
 // tint, active state, icon tint). Navigation targets and active-match logic
@@ -109,7 +108,7 @@ function BrandMark() {
 
 export default function Layout() {
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   // '/projects' has a nested '/projects/upload' child route, so (like the root
@@ -199,14 +198,21 @@ export default function Layout() {
           <h1 className="text-lg sm:text-xl font-semibold text-gray-800 truncate min-w-0">
             {FLAT_NAV.find(n => isNavItemActive(n.href))?.name || 'Analytics'}
           </h1>
-          {AUTH_ENABLED && (
           <div className="ml-auto flex items-center gap-2 sm:gap-3 shrink-0">
             <span className="hidden sm:flex items-center gap-1.5 text-sm text-gray-600 max-w-[12rem]">
               <UserCircle className="w-5 h-5 text-gray-400 shrink-0" />
               <span className="truncate">{user?.name || user?.username}</span>
             </span>
+            <button
+              type="button"
+              onClick={logout}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-gray-600 border border-gray-200 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+              title="Log out"
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="hidden sm:inline">Logout</span>
+            </button>
           </div>
-          )}
         </header>
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-gray-50">
           <Outlet />
