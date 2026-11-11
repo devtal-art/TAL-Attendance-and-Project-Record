@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Info, X } from 'lucide-react';
-import { getDepartmentChipStyle, getStatusChipStyle } from './constants';
+import { getStatusChipStyle } from './constants';
+import DepartmentChips from './DepartmentChips';
 
 const CHIP_CLASS = 'inline-flex items-center whitespace-nowrap rounded-full px-3 py-0.5 text-sm font-medium';
 
@@ -44,7 +45,7 @@ export default function DescriptionModal({ record, onClose }) {
             <h3 className="text-lg font-bold text-gray-900">{title}</h3>
             <div className="mt-1.5 flex flex-wrap items-center gap-2">
               {record.department && (
-                <span className={CHIP_CLASS} style={getDepartmentChipStyle(record.department)}>{record.department}</span>
+                <DepartmentChips department={record.department} chipClassName={CHIP_CLASS} className="gap-2" />
               )}
               {record.status && (
                 <span className={CHIP_CLASS} style={getStatusChipStyle(record.status)}>{record.status}</span>
