@@ -9,8 +9,8 @@ import ProjectsFilters from '../../components/projects/ProjectsFilters';
 import { DEFAULT_FILTERS, filterRecords, getCascadingFilterOptions, sanitizeFilters, validateProjectFilters } from '../../components/projects/dataUtils';
 import useUrlFilters from '../../lib/useUrlFilters';
 
-// The dashboard has no Frequency filter, so its URL state omits that key.
-const { frequency: _frequency, ...DASHBOARD_FILTERS } = DEFAULT_FILTERS;
+// The dashboard has no Frequency or Week filter, so its URL state omits those keys.
+const { frequency: _frequency, week: _week, ...DASHBOARD_FILTERS } = DEFAULT_FILTERS;
 
 export default function ProjectsDashboard() {
   const [projects, setProjects] = useState([]);

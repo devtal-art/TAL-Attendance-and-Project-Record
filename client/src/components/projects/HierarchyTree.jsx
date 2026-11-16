@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { CalendarDays, CalendarRange, ChevronRight, ChevronsDownUp, ChevronsUpDown, ListTree, Tag } from 'lucide-react';
 import { buildHierarchy, DEFAULT_HIERARCHY_LEVELS, getUniqueSorted } from './dataUtils';
-import { getTagChipStyle, getDepartmentChipStyle, getFrequencyChipStyle, getFullMonthName } from './constants';
+import { getTagChipStyle, getFrequencyChipStyle, getFullMonthName } from './constants';
+import DepartmentChips from './DepartmentChips';
 import ProjectLinks from './ProjectLinks';
 
 // Month is stored/grouped by its short form (Jan, Feb, ...) so sorting and
@@ -214,9 +215,7 @@ function Node({ node, level, levelFields, path, expanded, onToggle, hiddenDetail
                   </span>
                 )}
                 {project.department && !hiddenDetails.includes('department') && (
-                  <span className={CHIP_CLASS} style={getDepartmentChipStyle(project.department)}>
-                    {project.department}
-                  </span>
+                  <DepartmentChips department={project.department} chipClassName={CHIP_CLASS} className="shrink-0" />
                 )}
                 {!hiddenDetails.includes('links') && (
                   <span className="shrink-0 inline-flex items-center justify-center w-6 h-6">

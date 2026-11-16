@@ -177,6 +177,8 @@ function FilterGroup({ title, dotClass, tintClass, children }) {
   );
 }
 
+const weekLabel = (week) => `Week ${week}`;
+
 function FilterChip({ label, onRemove }) {
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary text-xs font-medium pl-2.5 pr-1.5 py-1">
@@ -199,6 +201,7 @@ export default function ProjectsFilters({
   years,
   quarters = [],
   months,
+  weeks = [],
   brands,
   categories,
   departments,
@@ -225,6 +228,8 @@ export default function ProjectsFilters({
         shown('year') && <FilterSelect key="year" label="Year" value={filters.year} onChange={update('year')} options={years} allLabel="All Years" />,
         shown('quarter') && <FilterSelect key="quarter" label="Quarter" value={filters.quarter} onChange={update('quarter')} options={quarters} allLabel="All Quarters" getOptionLabel={getQuarterLabel} />,
         shown('month') && <FilterSelect key="month" label="Month" value={filters.month} onChange={update('month')} options={months} allLabel="All Months" getOptionLabel={getFullMonthName} />,
+        // Only on pages whose filter state has a week (the Projects list).
+        filters.week !== undefined && shown('week') && <FilterSelect key="week" label="Week" value={filters.week} onChange={update('week')} options={weeks} allLabel="All Weeks" getOptionLabel={weekLabel} />,
       ],
     },
     {
@@ -242,7 +247,7 @@ export default function ProjectsFilters({
       dotClass: 'bg-orange-500',
       tintClass: 'border-orange-100 bg-orange-50/70',
       items: [
-        shown('status') && <FilterSelect key="status" label="Status" value={filters.status} onChange={update('status')} options={statuses} allLabel="All Statuses" />,
+        shown('status') && <FilterSelect key="status" label="Status" value={filters.status} onChange={update('status')} options={statuses} allLabel="All Status" />,
         // Only on pages that supply frequencies (the Projects list).
         frequencies.length > 0 && filters.frequency !== undefined && shown('frequency') && <FilterSelect key="frequency" label="Frequency" value={filters.frequency} onChange={update('frequency')} options={frequencies} allLabel="All Frequencies" />,
       ],
@@ -290,6 +295,7 @@ export default function ProjectsFilters({
           {filters.year !== 'All' && <FilterChip label={filters.year} onRemove={clear('year')} />}
           {filters.quarter !== 'All' && <FilterChip label={getQuarterLabel(filters.quarter)} onRemove={clear('quarter')} />}
           {filters.month !== 'All' && <FilterChip label={getFullMonthName(filters.month)} onRemove={clear('month')} />}
+          {filters.week != null && filters.week !== 'All' && <FilterChip label={weekLabel(filters.week)} onRemove={clear('week')} />}
           {!hideBrand && filters.brand !== 'All' && <FilterChip label={filters.brand} onRemove={clear('brand')} />}
           {filters.category !== 'All' && <FilterChip label={filters.category} onRemove={clear('category')} />}
           {filters.department !== 'All' && <FilterChip label={filters.department} onRemove={clear('department')} />}
@@ -297,7 +303,9 @@ export default function ProjectsFilters({
           {filters.frequency != null && filters.frequency !== 'All' && <FilterChip label={filters.frequency} onRemove={clear('frequency')} />}
           <button
             type="button"
-            onClick={() => onChange(DEFAULT_FILTERS)}
+            // Resets only the filters this page has, so a page without e.g.
+            // Week/Frequency doesn't suddenly gain those keys (and dropdowns).
+            onClick={() => onChange(Object.fromEntries(Object.keys(filters).map((key) => [key, DEFAULT_FILTERS[key] ?? filters[key]])))}
             className="text-xs font-medium text-gray-500 hover:text-gray-700 underline underline-offset-2 ml-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded"
           >
             Clear all

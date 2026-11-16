@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { downloadFile } from '../lib/auth';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -65,22 +66,14 @@ export const exportEmployeeMonth = (id, month, year, startDate, endDate) => {
   const params = new URLSearchParams({ month, year });
   if (startDate) params.set('startDate', startDate);
   if (endDate) params.set('endDate', endDate);
-  const url = `${API_URL}/employees/${id}/export/month?${params.toString()}`;
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = '';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  return runDownload(`${API_URL}/employees/${id}/export/month?${params.toString()}`);
 };
 
 // Downloads an Excel file for the employee across all months
-export const exportEmployeeAll = (id) => {
-  const url = `${API_URL}/employees/${id}/export/all`;
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = '';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-};
+export const exportEmployeeAll = (id) => runDownload(`${API_URL}/employees/${id}/export/all`);
+
+// Exports go through axios (not a plain link) so the login token is sent.
+const runDownload = (url) =>
+  downloadFile(url).catch((err) => {
+    if (err.response?.status !== 401) alert('Export failed. Please try again.');
+  });
